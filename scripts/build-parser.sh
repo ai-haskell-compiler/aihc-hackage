@@ -15,6 +15,8 @@ cd "$compiler_root"
 nix develop --quiet --command cabal update
 zlib_include=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.dev}/include"')
 zlib_lib=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.out}/lib"')
+native_libraries=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.zstd ]')
+export LD_LIBRARY_PATH="$native_libraries${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 nix develop --quiet --command cabal run -v1 \
   --extra-include-dirs="$zlib_include" --extra-lib-dirs="$zlib_lib" exe:aihc -- build "$project_root/parser" \
   -O2 --target wasm32-wasip3 --build-root "$project_root/.parser-build" --output "$project_root/.parser-output"
