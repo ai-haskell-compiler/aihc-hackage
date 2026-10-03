@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#152e2b">
+  <title>AIHC Hackage · Package metadata</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header><a class="brand" href="#"><span class="mark">λ</span><span>AIHC <strong>Hackage</strong></span></a><span class="header-note">Haskell package metadata</span></header>
+  <main>
+    <section class="intro"><p class="eyebrow">THE PACKAGE CATALOGUE</p><h1>Explore the parts.<br>See how they connect.</h1><p>Search package metadata. Inspect modules, licenses, and dependencies.<br>Import a Cabal file from Hackage when you need it.</p></section>
+    <section class="tools">
+      <form id="search-form"><label for="query">Find a package or exposed module</label><div class="input-row"><input id="query" type="search" maxlength="200" placeholder="Package, module, or description…"><button>Search</button></div></form>
+      <details id="import-panel"><summary>+ Import a package</summary><form id="import-form"><p>Enter a package name and an exact version from Hackage.</p><div class="import-fields"><label>Package name<input id="import-name" required maxlength="128" placeholder="text" autocomplete="off"></label><label>Version<input id="import-version" required maxlength="128" placeholder="2.1.4" autocomplete="off"></label><button id="import-button">Import Cabal file</button></div><p class="muted">The catalogue contains imported versions only.</p></form></details>
+    </section>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="content" aria-label="Package catalogue"></section>
+  </main>
+  <footer><span>AIHC Hackage</span><span>Metadata from <a href="https://hackage.haskell.org">Hackage</a> · <a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a></span></footer>
+</body>
+</html>
