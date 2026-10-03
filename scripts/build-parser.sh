@@ -15,7 +15,13 @@ cd "$compiler_root"
 nix develop --quiet --command cabal update
 zlib_include=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.dev}/include"')
 zlib_lib=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.out}/lib"')
-native_libraries=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in pkgs.lib.makeLibraryPath [ pkgs.zlib pkgs.zstd ]')
+native_closure_root=$(nix build --no-link --print-out-paths --impure --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; ghc = builtins.head compiler.devShells.${builtins.currentSystem}.default.buildInputs; in pkgs.closureInfo { rootPaths = [ ghc pkgs.zlib pkgs.zstd pkgs.xz pkgs.bzip2 ]; }')
+native_libraries=""
+while IFS= read -r library_root; do
+  if [[ -d "$library_root/lib" && ! -e "$library_root/lib/libc.so.6" ]]; then
+    native_libraries="${native_libraries:+$native_libraries:}$library_root/lib"
+  fi
+done < "$native_closure_root/store-paths"
 export LD_LIBRARY_PATH="$native_libraries${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 nix develop --quiet --command cabal run -v1 \
   --extra-include-dirs="$zlib_include" --extra-lib-dirs="$zlib_lib" exe:aihc -- build "$project_root/parser" \
