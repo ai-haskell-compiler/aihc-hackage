@@ -1,0 +1,16 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env*
+dist/
+generated/
+parser.wasm
+dist-newstyle/
+.aihc-target/
+.aihc/
+.compiler/
+.parser-build/
+.parser-output/
+.compiler
+worker-configuration.d.ts
+*.cpuprofile
