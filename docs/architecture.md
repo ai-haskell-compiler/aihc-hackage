@@ -67,3 +67,9 @@ Custom domain setup also needs the applicable zone permissions.
 The site domain is `hackage.aihc.app`.
 
 No compiler progress counts change in this repository.
+
+## Fixture source
+
+`test/fixtures/text-2.1.4.cabal` contains the published Cabal file from Hackage.
+Its BSD license is in `test/fixtures/text-LICENSE`.
+The fixture retains the original CRLF line breaks.

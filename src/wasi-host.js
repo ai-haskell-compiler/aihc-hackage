@@ -1,23 +1,30 @@
 export async function execute(instantiate, getCoreModule, input) {
-  const stdout = [];
-  const stderr = [];
   const writes = [];
   let inputOffset = 0;
   const ok = () => ({ tag: 'ok', val: undefined });
-  const capture = (target) => ({
-    writeViaStream(stream) {
-      const task = (async () => {
-        for await (const value of stream) {
-          if (typeof value === 'number') target.push(value);
-          else target.push(...value);
-          if (target.length > 4194304) throw new Error('Output exceeds the metadata limit');
-        }
-        return ok();
-      })();
-      writes.push(task);
-      return task;
-    },
-  });
+  const capture = (limit) => {
+    const buffer = new Uint8Array(limit);
+    let length = 0;
+    return {
+      bytes: () => buffer.slice(0, length),
+      writeViaStream(stream) {
+        const task = (async () => {
+          for await (const value of stream) {
+            const count = typeof value === 'number' ? 1 : value.length;
+            if (length + count > limit) throw new Error('Output exceeds the metadata limit');
+            if (typeof value === 'number') buffer[length] = value;
+            else buffer.set(value, length);
+            length += count;
+          }
+          return ok();
+        })();
+        writes.push(task);
+        return task;
+      },
+    };
+  };
+  const stdout = capture(4194304);
+  const stderr = capture(65536);
   const origin = performance.now();
   const now = () => BigInt(Math.floor((performance.now() - origin) * 1e6));
   const imports = {
@@ -38,8 +45,8 @@ export async function execute(instantiate, getCoreModule, input) {
         Promise.resolve(ok()),
       ],
     },
-    'wasi:cli/stdout': capture(stdout),
-    'wasi:cli/stderr': capture(stderr),
+    'wasi:cli/stdout': stdout,
+    'wasi:cli/stderr': stderr,
     'wasi:clocks/monotonic-clock': {
       now,
       waitUntil: async (when) => {
@@ -53,5 +60,5 @@ export async function execute(instantiate, getCoreModule, input) {
   const component = await instantiate(getCoreModule, imports);
   await component.run.run();
   await Promise.all(writes);
-  return { stdout: Uint8Array.from(stdout), stderr: Uint8Array.from(stderr) };
+  return { stdout: stdout.bytes(), stderr: stderr.bytes() };
 }

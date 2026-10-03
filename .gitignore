@@ -13,3 +13,4 @@ dist-newstyle/
 .parser-output/
 .compiler
 worker-configuration.d.ts
+*.cpuprofile

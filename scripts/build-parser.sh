@@ -12,6 +12,7 @@ if [[ "$(git -C "$compiler_root" rev-parse HEAD)" != "$compiler_revision" ]]; th
   exit 1
 fi
 cd "$compiler_root"
+nix develop --quiet --command cabal update
 nix develop --quiet --command cabal run -v0 exe:aihc -- build "$project_root/parser" \
   -O2 --target wasm32-wasip3 --build-root "$project_root/.parser-build" --output "$project_root/.parser-output"
 cp "$project_root/.parser-output/aihc-hackage-parser.wasm" "$project_root/parser.wasm"
