@@ -13,6 +13,9 @@ if [[ "$(git -C "$compiler_root" rev-parse HEAD)" != "$compiler_revision" ]]; th
 fi
 cd "$compiler_root"
 nix develop --quiet --command cabal update
-nix develop --quiet --command cabal run -v0 exe:aihc -- build "$project_root/parser" \
+zlib_include=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.dev}/include"')
+zlib_lib=$(nix eval --impure --raw --expr 'let compiler = builtins.getFlake (toString ./.); pkgs = import compiler.inputs.nixpkgs { system = builtins.currentSystem; }; in "${pkgs.zlib.out}/lib"')
+nix develop --quiet --command cabal run -v1 \
+  --extra-include-dirs="$zlib_include" --extra-lib-dirs="$zlib_lib" exe:aihc -- build "$project_root/parser" \
   -O2 --target wasm32-wasip3 --build-root "$project_root/.parser-build" --output "$project_root/.parser-output"
 cp "$project_root/.parser-output/aihc-hackage-parser.wasm" "$project_root/parser.wasm"

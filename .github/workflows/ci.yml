@@ -26,6 +26,8 @@ jobs:
         with:
           path: |
             ~/.cabal
+            ~/.cache/cabal
+            ~/.local/state/cabal
             ~/.cache/aihc
             ~/.local/share/aihc
             .compiler/dist-newstyle
