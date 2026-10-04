@@ -19,6 +19,7 @@ const mf = new Miniflare(convertV4MiniflareOptions({
     ...(await readdir('dist')).filter(name => name.endsWith('.wasm')).map(name => ({ type: 'CompiledWasm', path: `dist/${name}` }))],
   compatibilityDate: '2026-10-03', compatibilityFlags: ['nodejs_compat'],
   d1Databases: ['DB'], r2Buckets: ['CABAL'], ratelimits: { IMPORT_LIMIT: { namespace_id: '1001', simple: { limit: 10, period: 60 } } },
+  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/api/*', '/search', '/package/*'], routerConfig: { has_user_worker: true } },
   outboundService: async request => {
     outboundCount++;
     outboundUrls.push(request.url);
@@ -160,5 +161,17 @@ test('The Worker imports Cabal source into R2 and D1.', async () => {
       assert.equal((await request('/api/import', { name: '../secret', version: '1' }, { 'CF-Connecting-IP': '198.51.100.1' })).status, 400);
     }
     assert.equal((await request('/api/import', { name: 'sample', version: '1.2.0' }, { 'CF-Connecting-IP': '198.51.100.1' })).status, 429);
+    // The Worker serves the static page for package and search paths.
+    const home = await mf.dispatchFetch('http://localhost/');
+    const page = await home.text();
+    assert.match(page, /<title>AIHC Hackage/);
+    for (const path of ['/package/sample', '/package/sample/1.2.0/readme', '/search?q=sample']) {
+      const response = await mf.dispatchFetch(`http://localhost${path}`);
+      assert.equal(response.status, 200, path);
+      assert.match(response.headers.get('content-type'), /^text\/html/);
+      assert.equal(await response.text(), page, path);
+    }
+    assert.equal((await mf.dispatchFetch('http://localhost/package/sample', { method: 'POST' })).status, 405);
+    assert.equal((await mf.dispatchFetch('http://localhost/missing')).status, 404);
   } finally { await mf.dispose(); }
 });

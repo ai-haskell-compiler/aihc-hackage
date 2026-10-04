@@ -24,8 +24,9 @@ const element = (tag, text, className) => {
   return node;
 };
 const encode = encodeURIComponent;
-const packageHref = (name, version, tab) => `#package/${encode(name)}${version ? `/${encode(version)}` : ''}${tab ? `/${tab}` : ''}`;
-const searchHref = query => query ? `#search/${encode(query)}` : '#';
+const packageHref = (name, version, tab) => `/package/${encode(name)}${version ? `/${encode(version)}` : ''}${tab ? `/${tab}` : ''}`;
+const searchHref = query => query ? `/search?q=${encode(query)}` : '/';
+const currentHref = () => location.pathname + location.search;
 const link = (text, href, className) => { const node = element('a', text, className); node.href = href; return node; };
 const externalLink = (text, href) => { const node = link(text, href); node.rel = 'nofollow noopener'; return node; };
 function message(text, error = false) { status.textContent = text; status.className = error ? 'error' : ''; }
@@ -42,10 +43,11 @@ function showPage(kind) {
   document.body.dataset.page = kind;
 }
 
-async function catalogue(query, offset = 0) {
+async function catalogue(query, offset = 0, scroll = false) {
   const number = ++requestNumber;
   current = null;
   showPage('home'); setTitle(query);
+  if (scroll) scrollTo(0, 0);
   if (document.activeElement !== queryInput) queryInput.value = query;
   message('');
   try {
@@ -304,7 +306,7 @@ function renderTab() {
 function renderPackage() {
   const { pkg, reverse } = current;
   const head = element('div', undefined, 'package-head');
-  head.append(link('← All packages', '#', 'back'));
+  head.append(link('← All packages', '/', 'back'));
   const title = element('h1', pkg.name, 'package-title');
   title.append(element('span', pkg.version, 'badge'));
   head.append(title);
@@ -326,13 +328,14 @@ function renderPackage() {
   view.replaceChildren(head, layout);
   renderTab();
 }
-async function detail(name, version, tab) {
+async function detail(name, version, tab, scroll = false) {
   showPage('package');
   if (current && current.name === name && current.version === version) {
     current.tab = tab; renderTab(); return;
   }
   const number = ++requestNumber;
   current = null;
+  if (scroll) scrollTo(0, 0);
   setTitle(name);
   message('Please wait for the package metadata.');
   view.replaceChildren();
@@ -357,29 +360,46 @@ async function detail(name, version, tab) {
     button.onclick = () => openImport(name, version);
     prompt.append(button);
     empty.append(prompt);
-    view.replaceChildren(link('← All packages', '#', 'back'), empty);
+    view.replaceChildren(link('← All packages', '/', 'back'), empty);
   }
 }
 
-function route() {
-  const tabNames = TABS.map(([key]) => key).join('|');
-  const pkg = new RegExp(`^#package/([^/]+)(?:/([0-9][^/]*))?(?:/(${tabNames}))?$`).exec(location.hash);
+const TAB_NAMES = TABS.map(([key]) => key).join('|');
+const PACKAGE_PATH = new RegExp(`^/package/([^/]+)(?:/([0-9][^/]*))?(?:/(${TAB_NAMES}))?/?$`);
+const appPath = pathname => pathname === '/' || pathname === '/search' || pathname.startsWith('/package/');
+// Old links used URL fragments, for example #package/text/2.1.4/readme and #search/Data.Text.
+function legacyHref() {
+  const pkg = /^#(package\/.*)$/.exec(location.hash);
+  if (pkg) return `/${pkg[1]}`;
   const search = /^#search\/(.*)$/.exec(location.hash);
+  if (search) { try { return searchHref(decodeURIComponent(search[1])); } catch { return '/'; } }
+  return null;
+}
+function route(scroll = false) {
+  const pkg = PACKAGE_PATH.exec(location.pathname);
   try {
-    if (pkg) detail(decodeURIComponent(pkg[1]), pkg[2] && decodeURIComponent(pkg[2]), pkg[3]);
-    else {
-      catalogue(search ? decodeURIComponent(search[1]) : '', 0);
+    if (pkg) detail(decodeURIComponent(pkg[1]), pkg[2] && decodeURIComponent(pkg[2]), pkg[3], scroll);
+    else if (location.pathname === '/' || location.pathname === '/search') {
+      catalogue(location.pathname === '/search' ? (new URLSearchParams(location.search).get('q') || '').trim() : '', 0, scroll);
       // The search field is hidden at load, so the autofocus attribute has no effect.
       queryInput.focus({ preventScroll: true });
-    }
+    } else { showPage('home'); view.replaceChildren(); message('This page does not exist.', true); }
   } catch { message('The link is not valid.', true); }
 }
-function search(query, replace = false) {
-  const href = searchHref(query.trim());
-  if (location.hash === href || (!location.hash && href === '#')) { catalogue(query.trim(), 0); return; }
-  if (replace) { history.replaceState(null, '', href === '#' ? location.pathname : href); catalogue(query.trim(), 0); }
-  else location.hash = href;
+function navigate(href, replace = false) {
+  if (href === currentHref()) { route(!replace); return; }
+  if (replace) history.replaceState(null, '', href); else history.pushState(null, '', href);
+  route(!replace);
 }
+function search(query, replace = false) { navigate(searchHref(query.trim()), replace); }
+document.addEventListener('click', event => {
+  const anchor = event.target.closest('a[href]');
+  if (!anchor || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  if (anchor.origin !== location.origin || anchor.target || anchor.hasAttribute('download') || !appPath(anchor.pathname)) return;
+  if (anchor.hash && anchor.pathname === location.pathname && anchor.search === location.search) return;
+  event.preventDefault();
+  navigate(anchor.pathname + anchor.search);
+});
 let searchTimer;
 queryInput.addEventListener('input', () => {
   clearTimeout(searchTimer);
@@ -398,8 +418,7 @@ function openImport(name = '', version = '') {
 async function importVersion(name, version) {
   const result = await api('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, version }) });
   current = null;
-  const href = packageHref(result.name, result.version);
-  if (location.hash === href) await detail(result.name, result.version); else location.hash = href;
+  navigate(packageHref(result.name, result.version));
 }
 document.querySelector('#open-import').onclick = () => openImport();
 document.querySelector('#import-cancel').onclick = () => importDialog.close();
@@ -414,5 +433,7 @@ document.querySelector('#import-form').onsubmit = async event => {
   catch (error) { importStatus.textContent = error.message; importStatus.className = 'error'; }
   finally { button.disabled = false; }
 };
-window.addEventListener('hashchange', route);
+window.addEventListener('popstate', () => route());
+const legacy = legacyHref();
+if (legacy) history.replaceState(null, '', legacy);
 route();

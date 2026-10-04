@@ -152,6 +152,11 @@ export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
+      if (url.pathname === '/search' || url.pathname.startsWith('/package/')) {
+        // The client renders these pages from the static page until the Worker renders them.
+        if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
+        return env.ASSETS.fetch(new Request(new URL('/', url), { method: request.method, headers: request.headers }));
+      }
       if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
       if (request.method === 'POST' && url.pathname === '/api/import') return await importPackage(request, env);
       if (request.method !== 'GET') throw new HttpError(405, 'This method is not available.');
