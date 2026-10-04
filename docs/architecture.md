@@ -92,6 +92,8 @@ The Worker serves the static page for `/search` and `/package/*` and the browser
 The page changes the URL with the History API when a visitor follows an internal link.
 Old links used URL fragments, for example `#package/text/2.1.4/readme`.
 The page replaces an old fragment URL with the path URL when it loads.
+The page keeps the current content until the new content is ready.
+The wait message appears only when a request takes more than 300 ms.
 The README tab opens first if the README is available.
 Otherwise, the description tab opens first.
 `public/haddock.js` renders the Haddock markup in package descriptions.

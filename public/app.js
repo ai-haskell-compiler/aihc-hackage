@@ -16,6 +16,9 @@ const TABS = [
 const COMPONENT_NAMES = { library: 'Library', 'foreign-library': 'Foreign library', executable: 'Executable', 'test-suite': 'Test suite', benchmark: 'Benchmark' };
 let requestNumber = 0;
 let current = null;
+let waitTimer;
+// The page keeps the current content until the new content is ready. The wait message appears only when a request is slow.
+const WAIT_DELAY = 300;
 
 const element = (tag, text, className) => {
   const node = document.createElement(tag);
@@ -30,6 +33,9 @@ const currentHref = () => location.pathname + location.search;
 const link = (text, href, className) => { const node = element('a', text, className); node.href = href; return node; };
 const externalLink = (text, href) => { const node = link(text, href); node.rel = 'nofollow noopener'; return node; };
 function message(text, error = false) { status.textContent = text; status.className = error ? 'error' : ''; }
+function cancelRequest() { requestNumber++; clearTimeout(waitTimer); }
+function startRequest(text) { cancelRequest(); waitTimer = setTimeout(() => message(text), WAIT_DELAY); return requestNumber; }
+function finishRequest() { clearTimeout(waitTimer); message(''); }
 async function api(path, options) {
   const response = await fetch(path, options);
   const result = await response.json();
@@ -43,13 +49,12 @@ function showPage(kind) {
   document.body.dataset.page = kind;
 }
 
-async function catalogue(query, offset = 0, scroll = false) {
-  const number = ++requestNumber;
-  current = null;
-  showPage('home'); setTitle(query);
-  if (scroll) scrollTo(0, 0);
+async function catalogue(query, offset = 0, scroll = false, focus = false) {
+  const number = startRequest('Please wait for the search results.');
+  setTitle(query);
   if (document.activeElement !== queryInput) queryInput.value = query;
-  message('');
+  // A package page hides the search field. The focus then waits until the home page shows.
+  if (focus && !home.hidden) queryInput.focus({ preventScroll: true });
   try {
     const data = await api(`/api/packages?q=${encode(query)}&offset=${offset}`);
     if (number !== requestNumber) return;
@@ -64,6 +69,11 @@ async function catalogue(query, offset = 0, scroll = false) {
       card.append(title, element('p', pkg.synopsis || 'No synopsis in the Cabal file.'), element('span', pkg.license || 'License unspecified', 'card-meta'));
       item.append(card); list.append(item);
     }
+    current = null;
+    finishRequest();
+    const wasHidden = home.hidden;
+    showPage('home');
+    if (scroll) scrollTo(0, 0);
     view.replaceChildren(label, list);
     if (!data.packages.length) {
       const empty = element('div', undefined, 'empty');
@@ -80,7 +90,15 @@ async function catalogue(query, offset = 0, scroll = false) {
     if (offset > 0) { const previous = element('button', '← Previous', 'secondary'); previous.onclick = () => catalogue(query, Math.max(0, offset - 30)); pager.append(previous); }
     if (data.hasMore) { const next = element('button', 'Next →', 'secondary'); next.onclick = () => catalogue(query, offset + 30); pager.append(next); }
     if (pager.childElementCount) view.append(pager);
-  } catch (error) { if (number === requestNumber) message(error.message, true); }
+    if (focus && wasHidden) queryInput.focus({ preventScroll: true });
+  } catch (error) {
+    if (number !== requestNumber) return;
+    current = null;
+    finishRequest();
+    showPage('home');
+    view.replaceChildren();
+    message(error.message, true);
+  }
 }
 
 function condition(value) {
@@ -125,14 +143,14 @@ function documentTab(pkg, kind) {
     const actions = element('p', undefined, 'tab-actions');
     actions.append(link(`Open the ${title} as plain text ↗`, href));
     node.append(text, actions);
-    current.documents ||= {};
-    const cached = current.documents[kind];
+    const documents = current.documents ||= {};
+    const cached = documents[kind];
     if (cached !== undefined) show(cached);
     else (async () => {
       try {
         const response = await fetch(href);
         if (!response.ok) throw new Error('The document is not available. Open the file link to try again.');
-        show(current.documents[kind] = await response.text());
+        show(documents[kind] = await response.text());
       } catch (error) { text.textContent = error.message; }
     })();
   } else if (record.status === 'missing') node.append(emptyNote(`Hackage does not have a ${title} file for this version.`));
@@ -329,16 +347,12 @@ function renderPackage() {
   renderTab();
 }
 async function detail(name, version, tab, scroll = false) {
-  showPage('package');
   if (current && current.name === name && current.version === version) {
+    cancelRequest(); message('');
     current.tab = tab; renderTab(); return;
   }
-  const number = ++requestNumber;
-  current = null;
-  if (scroll) scrollTo(0, 0);
+  const number = startRequest('Please wait for the package metadata.');
   setTitle(name);
-  message('Please wait for the package metadata.');
-  view.replaceChildren();
   try {
     const [pkg, reverse] = await Promise.all([
       api(`/api/packages/${encode(name)}${version ? `/${encode(version)}` : ''}`),
@@ -347,11 +361,16 @@ async function detail(name, version, tab, scroll = false) {
     if (number !== requestNumber) return;
     current = { name, version, tab, pkg, reverse };
     setTitle(`${pkg.name}-${pkg.version}`);
-    message('');
+    finishRequest();
+    showPage('package');
+    if (scroll) scrollTo(0, 0);
     renderPackage();
   } catch (error) {
     if (number !== requestNumber) return;
-    message('');
+    current = null;
+    finishRequest();
+    showPage('package');
+    if (scroll) scrollTo(0, 0);
     const empty = element('div', undefined, 'empty');
     empty.append(element('h3', error.message));
     const prompt = element('p', 'The site contains imported versions only. ');
@@ -377,13 +396,14 @@ function legacyHref() {
 }
 function route(scroll = false) {
   const pkg = PACKAGE_PATH.exec(location.pathname);
+  // The first route shows the page before the data arrives. Later routes keep the current page until the new content is ready.
+  if (!document.body.dataset.page) showPage(pkg ? 'package' : 'home');
   try {
     if (pkg) detail(decodeURIComponent(pkg[1]), pkg[2] && decodeURIComponent(pkg[2]), pkg[3], scroll);
     else if (location.pathname === '/' || location.pathname === '/search') {
-      catalogue(location.pathname === '/search' ? (new URLSearchParams(location.search).get('q') || '').trim() : '', 0, scroll);
-      // The search field is hidden at load, so the autofocus attribute has no effect.
-      queryInput.focus({ preventScroll: true });
-    } else { showPage('home'); view.replaceChildren(); message('This page does not exist.', true); }
+      // The search field is hidden at load, so the autofocus attribute has no effect. The catalogue sets the focus.
+      catalogue(location.pathname === '/search' ? (new URLSearchParams(location.search).get('q') || '').trim() : '', 0, scroll, true);
+    } else { cancelRequest(); current = null; showPage('home'); view.replaceChildren(); message('This page does not exist.', true); }
   } catch { message('The link is not valid.', true); }
 }
 function navigate(href, replace = false) {
