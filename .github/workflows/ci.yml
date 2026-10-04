@@ -13,6 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
+        id: compiler
         with:
           repository: ai-haskell-compiler/aihc
           ref: bf991343a626e758a7d6d616770824fb55aaac92
@@ -22,6 +23,12 @@ jobs:
           node-version: '24'
           cache: npm
       - uses: cachix/install-nix-action@v31
+      - name: Restore and save Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          # The compiler commit also pins its flake inputs and Nix expressions.
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ steps.compiler.outputs.commit }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v4
         with:
           path: |
