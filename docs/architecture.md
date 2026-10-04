@@ -86,7 +86,12 @@ The footer link and the empty search results open this dialog.
 
 The package page shows the package name, version, and synopsis.
 Tabs show the description, README, API, dependencies, dependents, changelog, and Cabal fields.
-Each tab has a URL, for example `#package/text/2.1.4/readme`.
+Each tab has a URL, for example `/package/text/2.1.4/readme`.
+A search has a URL, for example `/search?q=Data.Text`.
+The Worker serves the static page for `/search` and `/package/*` and the browser renders the content.
+The page changes the URL with the History API when a visitor follows an internal link.
+Old links used URL fragments, for example `#package/text/2.1.4/readme`.
+The page replaces an old fragment URL with the path URL when it loads.
 The README tab opens first if the README is available.
 Otherwise, the description tab opens first.
 `public/haddock.js` renders the Haddock markup in package descriptions.
