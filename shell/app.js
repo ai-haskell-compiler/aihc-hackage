@@ -112,13 +112,20 @@ if (!crossOriginIsolated || typeof SharedArrayBuffer === 'undefined') {
     event.target.value = ''; if (!busy) { line = ''; prompt(); } terminal.focus();
   };
   element('download').onclick = () => {
-    const path = window.prompt('Enter the file path to download.', `${shell.cwd}/hello.c`);
-    if (!path) return;
+    element('download-form').hidden = false;
+    element('download-path').value = `${shell.cwd}/hello.c`;
+    element('download-path').focus();
+  };
+  element('download-cancel').onclick = () => { element('download-form').hidden = true; terminal.focus(); };
+  element('download-form').onsubmit = event => {
+    event.preventDefault();
+    const path = element('download-path').value;
     try {
       const bytes = fs.read(normalize(path, shell.cwd));
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/octet-stream' }));
       const link = document.createElement('a'); link.href = url; link.download = path.split('/').pop(); link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      element('download-form').hidden = true; terminal.focus();
     } catch (error) { terminal.writeln(`\r\n${error.message}`); if (!busy) { line = ''; prompt(); } }
   };
   await save(); status('WASI ready');

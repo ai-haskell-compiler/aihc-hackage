@@ -22,6 +22,7 @@
     <section class="intro"><p class="eyebrow">WASM IN YOUR BROWSER</p><h1>A small machine.<br>A place to build.</h1><p>Run WASI programs. Compile C. Connect commands with pipes. <br>Your home directory stays in this browser.</p></section>
     <section class="workspace" aria-label="Browser shell">
       <div class="toolbar"><span class="session"><span aria-hidden="true">●</span> <span id="runtime-status" role="status">Starting…</span></span><div class="actions"><button id="upload" type="button">Upload files</button><button id="download" type="button">Download file</button><button id="stop" type="button" disabled>Stop</button></div></div>
+      <form id="download-form" class="download-form" hidden><label for="download-path">File path</label><input id="download-path" required autocomplete="off"><button type="submit">Download</button><button id="download-cancel" type="button">Cancel</button></form>
       <input id="files" type="file" multiple hidden>
       <div id="terminal" tabindex="0" aria-label="Shell terminal"></div>
       <div class="statusbar"><span id="cwd">/home/user</span><span id="storage-status" role="status">Opening file storage…</span></div>
