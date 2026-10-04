@@ -1,6 +1,6 @@
 /* AIHC design tokens. The values match blog.aihc.app and docs.aihc.app. */
-@font-face{font-family:Inter;src:url('/shell/assets/inter.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
-@font-face{font-family:Newsreader;src:url('/shell/assets/newsreader.woff2') format('woff2');font-style:normal;font-weight:200 800;font-display:swap}
+@font-face{font-family:Inter;src:url('/fonts/inter.3100e775.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:optional}
+@font-face{font-family:Newsreader;src:url('/fonts/newsreader.6e4f2958.woff2') format('woff2');font-style:normal;font-weight:200 800;font-display:optional}
 :root{
   color-scheme:light;
   --background:#faf8f3;--surface:#ffffff;--text:#1d1a17;--muted:#6b655d;--border:#e6e0d6;
