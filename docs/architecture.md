@@ -69,7 +69,12 @@ The page shows the alternative text for an image with a relative address.
 ## Site design
 
 The site uses the AIHC colors, fonts, mark, and favicon from the blog and the manual.
-The page loads Inter and Newsreader from `public/shell/assets`.
+The page loads Inter and Newsreader from `public/fonts`.
+Each font file name contains the first eight characters of the SHA-256 digest of the file.
+The `public/_headers` file gives `/fonts/*` a one-year immutable cache.
+Change the file name and all references when you change a font file.
+The font faces use `font-display: optional`, so the browser does not change fonts after the first paint.
+Both pages preload both font files.
 `public/theme.js` sets the theme before the page draws.
 The theme button cycles through the system, light, and dark modes, as in the manual.
 The shell page uses the same header, footer, stylesheet, and theme script as the package pages.
