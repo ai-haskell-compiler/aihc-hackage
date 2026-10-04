@@ -1,7 +1,8 @@
 # Package metadata
 
-The site uses plain JavaScript and Cloudflare Workers static assets.
-The Worker supplies the search, package, Cabal file, document, and import APIs.
+The site is a Cloudflare Worker with static assets.
+The Worker renders the site pages and supplies the search, package, Cabal file, document, and import APIs.
+The static assets supply the stylesheet, the scripts, the fonts, and the shell page.
 D1 stores package versions and the search and dependency indexes.
 R2 stores immutable Cabal files, JSON metadata, READMEs, and changelogs.
 
@@ -60,7 +61,7 @@ The package API includes status and digest information for both documents.
 The `/api/readme/{name}/{version}` and `/api/changelog/{name}/{version}` APIs serve saved document bytes as plain text.
 The Hackage endpoints do not identify the original file format.
 The page shows a README as Markdown and a changelog as plain text.
-`public/markdown.js` renders the Markdown as DOM nodes and does not parse HTML.
+`src/markdown.js` renders the Markdown as HTML text and escapes the source text. It does not parse HTML.
 The page shows HTML in package documents as text.
 The content security policy lets the page load images from HTTPS addresses.
 The page loads Markdown images over HTTPS and does not send a referrer.
@@ -88,13 +89,17 @@ The package page shows the package name, version, and synopsis.
 Tabs show the description, README, API, dependencies, dependents, changelog, and Cabal fields.
 Each tab has a URL, for example `/package/text/2.1.4/readme`.
 A search has a URL, for example `/search?q=Data.Text`.
-The Worker serves the static page for `/search` and `/package/*` and the browser renders the content.
-The page changes the URL with the History API when a visitor follows an internal link.
-Old links used URL fragments, for example `#package/text/2.1.4/readme`.
-The page replaces an old fragment URL with the path URL when it loads.
+The Worker renders the home page, the search page, and the package pages with the templates in `src/pages.js`.
+`src/html.js` escapes all values in the templates.
+Each page has a title, a description, a canonical link, and Open Graph fields for link previews.
+Search pages and error pages have a `noindex` robots field.
+`/sitemap.xml` lists all imported versions and `/robots.txt` points to it.
+A page response has a one-minute browser cache. An error page has no cache.
+The pages work without scripts.
+`public/app.js` adds the import dialog and shows search results while the visitor types.
 The README tab opens first if the README is available.
 Otherwise, the description tab opens first.
-`public/haddock.js` renders the Haddock markup in package descriptions.
+`src/haddock.js` renders the Haddock markup in package descriptions as HTML text.
 A line that contains only a period starts a new paragraph.
 
 ## Development

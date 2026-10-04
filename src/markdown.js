@@ -1,6 +1,7 @@
-// Render CommonMark and GitHub Markdown in package READMEs.
-// The renderer creates DOM nodes and does not parse HTML.
+// Render CommonMark and GitHub Markdown in package READMEs as HTML text.
+// The renderer escapes all source text and does not parse HTML.
 // The page shows raw HTML as text.
+import { escape } from './html.js';
 
 const INLINE = new RegExp([
   String.raw`(\x60+)([^\x60]|[^\x60][\s\S]*?[^\x60])\1(?!\x60)`, // 1, 2: `code`
@@ -17,7 +18,7 @@ const INLINE = new RegExp([
   String.raw`&(#\d{1,7}|#[xX][\da-fA-F]{1,6}|[A-Za-z]{2,8});`, // 17: entity
 ].join('|'), 'g');
 
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', mdash: '—', ndash: '–', hellip: '…', rarr: '→', larr: '←' };
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', mdash: '—', ndash: '–', hellip: '…', rarr: '→', larr: '←' };
 
 function entity(name) {
   if (name[0] !== '#') return ENTITIES[name];
@@ -28,71 +29,55 @@ function safeUrl(url) {
   if (/^www\./i.test(url)) return `https://${url}`;
   return /^(?:https?:\/\/|mailto:)/i.test(url) ? url : null;
 }
-function anchor(href) {
-  const node = document.createElement('a');
-  node.href = href;
-  node.rel = 'nofollow noopener';
-  return node;
-}
-function create(tag, children) {
-  const node = document.createElement(tag);
-  node.append(children);
-  return node;
-}
+const anchor = (href, content) => `<a href="${escape(href)}" rel="nofollow noopener">${content}</a>`;
 
 function inline(text, refs, inLink = false) {
-  const fragment = document.createDocumentFragment();
+  let out = '';
   let last = 0;
   for (const match of text.matchAll(INLINE)) {
-    fragment.append(text.slice(last, match.index));
+    out += escape(text.slice(last, match.index));
     last = match.index + match[0].length;
     const [whole, , code, alt, imageUrl, label, url, refLabel, ref, angleUrl, bareUrl,
       strongStar, strongLine, emStar, emLine, strike, escaped, entityName] = match;
     if (code !== undefined) {
       const trimmed = /^ .* $/s.test(code) && code.trim() ? code.slice(1, -1) : code;
-      fragment.append(create('code', trimmed.replace(/\n/g, ' ')));
-    } else if (alt !== undefined) fragment.append(image(alt, imageUrl));
-    else if (label !== undefined) fragment.append(link(label, url, refs, inLink));
+      out += `<code>${escape(trimmed.replace(/\n/g, ' '))}</code>`;
+    } else if (alt !== undefined) out += image(alt, imageUrl);
+    else if (label !== undefined) out += link(label, url, refs, inLink);
     else if (refLabel !== undefined) {
       const target = refs.get(normalize(ref || refLabel));
-      if (target === undefined) { fragment.append(whole[0] === '!' ? '![' : '[', inline(refLabel, refs, inLink), ']'); if (ref !== undefined) fragment.append(`[${ref}]`); }
-      else if (whole[0] === '!') fragment.append(image(refLabel, target));
-      else fragment.append(link(refLabel, target, refs, inLink));
+      if (target === undefined) {
+        out += escape(whole[0] === '!' ? '![' : '[') + inline(refLabel, refs, inLink) + ']';
+        if (ref !== undefined) out += escape(`[${ref}]`);
+      } else if (whole[0] === '!') out += image(refLabel, target);
+      else out += link(refLabel, target, refs, inLink);
     } else if (angleUrl !== undefined || bareUrl !== undefined) {
       const value = angleUrl ?? bareUrl;
       const href = safeUrl(value);
-      if (href && !inLink) { const node = anchor(href); node.textContent = value.replace(/^mailto:/i, ''); fragment.append(node); }
-      else fragment.append(value);
-    } else if (strongStar !== undefined || strongLine !== undefined) fragment.append(create('strong', inline(strongStar ?? strongLine, refs, inLink)));
-    else if (emStar !== undefined || emLine !== undefined) fragment.append(create('em', inline(emStar ?? emLine, refs, inLink)));
-    else if (strike !== undefined) fragment.append(create('del', inline(strike, refs, inLink)));
-    else if (escaped !== undefined) fragment.append(escaped);
-    else if (entityName !== undefined) fragment.append(entity(entityName) ?? whole);
-    else fragment.append(document.createElement('br'));
+      if (href && !inLink) out += anchor(href, escape(value.replace(/^mailto:/i, '')));
+      else out += escape(value);
+    } else if (strongStar !== undefined || strongLine !== undefined) out += `<strong>${inline(strongStar ?? strongLine, refs, inLink)}</strong>`;
+    else if (emStar !== undefined || emLine !== undefined) out += `<em>${inline(emStar ?? emLine, refs, inLink)}</em>`;
+    else if (strike !== undefined) out += `<del>${inline(strike, refs, inLink)}</del>`;
+    else if (escaped !== undefined) out += escape(escaped);
+    else if (entityName !== undefined) out += escape(entity(entityName) ?? whole);
+    else out += '<br>';
   }
-  fragment.append(text.slice(last));
-  return fragment;
+  return out + escape(text.slice(last));
 }
 function link(label, url, refs, inLink) {
   const href = safeUrl(url);
   const content = inline(label, refs, true);
   if (!href || inLink) return content;
-  const node = anchor(href);
-  node.append(content);
-  return node;
+  return anchor(href, content);
 }
-// Show an image as a link to the image, with the alternative text as the label.
-// Load images over HTTPS only. Show the alternative text for other images.
+// Show an image when its address uses HTTP or HTTPS. Show the alternative text for other images.
+// The browser loads images over HTTPS only and does not send a referrer.
 function image(alt, url) {
   const text = alt.replace(/[\\*_`]/g, '').trim();
-  if (!/^https?:\/\//i.test(url)) return text;
-  const node = document.createElement('img');
-  node.src = url.replace(/^http:/i, 'https:');
-  node.alt = text;
-  node.loading = 'lazy';
-  node.decoding = 'async';
-  node.referrerPolicy = 'no-referrer';
-  return node;
+  if (!/^https?:\/\//i.test(url)) return escape(text);
+  const src = url.replace(/^http:/i, 'https:');
+  return `<img src="${escape(src)}" alt="${escape(text)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
 }
 const normalize = label => label.trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -109,6 +94,7 @@ const TABLE_DIVIDER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
 const expandTabs = line => line.replace(/^[ \t]+/, space => space.replace(/\t/g, '    '));
 const indent = line => /^ */.exec(line)[0].length;
 const blank = line => line.trim() === '';
+const codeBlock = (text, language) => `<pre><code${language ? ` data-language="${escape(language)}"` : ''}>${escape(text)}</code></pre>`;
 
 // Return true if a line can interrupt a paragraph.
 function interrupts(line) {
@@ -123,8 +109,9 @@ function cells(line) {
   return text.split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, '|'));
 }
 
-function blocks(lines, refs) {
-  const fragment = document.createDocumentFragment();
+// Render block lines. A tight list item renders its paragraphs without p elements.
+function blocks(lines, refs, tight = false) {
+  let out = '';
   let index = 0;
   while (index < lines.length) {
     const line = lines[index];
@@ -137,25 +124,24 @@ function blocks(lines, refs) {
       const end = new RegExp(`^ {0,3}${marker[0] === '~' ? '~' : '\x60'}{${marker.length},}\\s*$`);
       while (++index < lines.length && !end.test(lines[index])) body.push(lines[index].replace(new RegExp(`^ {0,${space.length}}`), ''));
       index++;
-      const code = create('code', body.join('\n'));
-      if (language) code.dataset.language = language;
-      fragment.append(create('pre', code));
+      out += codeBlock(body.join('\n'), language);
       continue;
     }
     if (indent(line) >= 4) {
       const body = [];
       while (index < lines.length && (indent(lines[index]) >= 4 || blank(lines[index]))) body.push(lines[index++].slice(4));
       while (body.length && blank(body.at(-1))) body.pop();
-      fragment.append(create('pre', create('code', body.join('\n'))));
+      out += codeBlock(body.join('\n'));
       continue;
     }
     const heading = ATX.exec(line);
     if (heading) {
-      fragment.append(create(`h${Math.min(6, heading[1].length + 1)}`, inline(heading[2] || '', refs)));
+      const level = Math.min(6, heading[1].length + 1);
+      out += `<h${level}>${inline(heading[2] || '', refs)}</h${level}>`;
       index++;
       continue;
     }
-    if (RULE.test(line)) { fragment.append(document.createElement('hr')); index++; continue; }
+    if (RULE.test(line)) { out += '<hr>'; index++; continue; }
     if (QUOTE.test(line)) {
       const body = [];
       while (index < lines.length && !blank(lines[index])) {
@@ -164,38 +150,31 @@ function blocks(lines, refs) {
         body.push(quote ? quote[1] : lines[index]);
         index++;
       }
-      fragment.append(create('blockquote', blocks(body, refs)));
+      out += `<blockquote>${blocks(body, refs)}</blockquote>`;
       continue;
     }
     if (HTML.test(line)) {
       const body = [];
       while (index < lines.length && !blank(lines[index])) body.push(lines[index++]);
       const text = body.join('\n');
-      if (!/^\s*<!--[\s\S]*-->\s*$/.test(text)) fragment.append(create('pre', create('code', text)));
+      if (!/^\s*<!--[\s\S]*-->\s*$/.test(text)) out += codeBlock(text);
       continue;
     }
-    const item = ITEM.exec(line);
-    if (item) { index = list(lines, index, refs, fragment); continue; }
+    if (ITEM.test(line)) {
+      const result = list(lines, index, refs);
+      out += result.html;
+      index = result.index;
+      continue;
+    }
     if (line.includes('|') && index + 1 < lines.length && TABLE_DIVIDER.test(lines[index + 1]) && lines[index + 1].includes('-')) {
       const header = cells(line);
       const aligns = cells(lines[index + 1]).map(cell => cell.endsWith(':') ? (cell.startsWith(':') ? 'center' : 'right') : cell.startsWith(':') ? 'left' : '');
-      const table = document.createElement('table');
-      const row = (values, tag) => {
-        const tr = document.createElement('tr');
-        header.forEach((_, column) => {
-          const cell = create(tag, inline(values[column] ?? '', refs));
-          if (aligns[column]) cell.style.textAlign = aligns[column];
-          tr.append(cell);
-        });
-        return tr;
-      };
-      table.append(create('thead', row(header, 'th')));
-      const body = document.createElement('tbody');
+      const row = (values, tag) => `<tr>${header.map((_, column) =>
+        `<${tag}${aligns[column] ? ` class="align-${aligns[column]}"` : ''}>${inline(values[column] ?? '', refs)}</${tag}>`).join('')}</tr>`;
+      let body = '';
       index += 2;
-      while (index < lines.length && !blank(lines[index]) && !interrupts(lines[index])) body.append(row(cells(lines[index++]), 'td'));
-      if (body.childElementCount) table.append(body);
-      fragment.append(create('div', table));
-      fragment.lastChild.className = 'table-scroll';
+      while (index < lines.length && !blank(lines[index]) && !interrupts(lines[index])) body += row(cells(lines[index++]), 'td');
+      out += `<div class="table-scroll"><table><thead>${row(header, 'th')}</thead>${body ? `<tbody>${body}</tbody>` : ''}</table></div>`;
       continue;
     }
 
@@ -205,24 +184,27 @@ function blocks(lines, refs) {
       const setext = SETEXT.exec(lines[index]);
       if (!setext && interrupts(lines[index])) break;
       if (setext) {
-        fragment.append(create(setext[1][0] === '=' ? 'h2' : 'h3', inline(paragraph.join('\n'), refs)));
+        const tag = setext[1][0] === '=' ? 'h2' : 'h3';
+        out += `<${tag}>${inline(paragraph.join('\n'), refs)}</${tag}>`;
         paragraph.length = 0;
         index++;
         break;
       }
       paragraph.push(lines[index++].replace(/^\s+/, ''));
     }
-    if (paragraph.length) fragment.append(create('p', inline(paragraph.join('\n').replace(/\s+$/, ''), refs)));
+    if (paragraph.length) {
+      const content = inline(paragraph.join('\n').replace(/\s+$/, ''), refs);
+      out += tight ? content : `<p>${content}</p>`;
+    }
   }
-  return fragment;
+  return out;
 }
 
-function list(lines, start, refs, fragment) {
+function list(lines, start, refs) {
   const first = ITEM.exec(lines[start]);
   const ordered = /\d/.test(first[2]);
   const delimiter = first[2].at(-1);
-  const node = document.createElement(ordered ? 'ol' : 'ul');
-  if (ordered && parseInt(first[2], 10) !== 1) node.start = parseInt(first[2], 10);
+  const startNumber = ordered ? parseInt(first[2], 10) : 1;
   // Return true if a line starts a new item in this list.
   const sameList = line => {
     const item = ITEM.exec(line);
@@ -253,25 +235,18 @@ function list(lines, start, refs, fragment) {
     items.push(body);
     if (sawBlank && !next) break;
   }
+  let html = '';
   for (const body of items) {
-    const li = document.createElement('li');
     const task = /^\[([ xX])\][ \t]+/.exec(body[0]);
+    let prefix = '';
     if (task) {
       body[0] = body[0].slice(task[0].length);
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.disabled = true;
-      box.checked = task[1] !== ' ';
-      li.className = 'task';
-      li.append(box, ' ');
+      prefix = `<input type="checkbox" disabled${task[1] !== ' ' ? ' checked' : ''}> `;
     }
-    const content = blocks(body, refs);
-    if (!loose) for (const child of [...content.childNodes]) if (child.nodeName === 'P') child.replaceWith(...child.childNodes);
-    li.append(content);
-    node.append(li);
+    html += `<li${task ? ' class="task"' : ''}>${prefix}${blocks(body, refs, !loose)}</li>`;
   }
-  fragment.append(node);
-  return index;
+  const tag = ordered ? 'ol' : 'ul';
+  return { html: `<${tag}${ordered && startNumber !== 1 ? ` start="${startNumber}"` : ''}>${html}</${tag}>`, index };
 }
 
 export function markdown(source) {

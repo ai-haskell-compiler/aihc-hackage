@@ -19,7 +19,7 @@ const mf = new Miniflare(convertV4MiniflareOptions({
     ...(await readdir('dist')).filter(name => name.endsWith('.wasm')).map(name => ({ type: 'CompiledWasm', path: `dist/${name}` }))],
   compatibilityDate: '2026-10-03', compatibilityFlags: ['nodejs_compat'],
   d1Databases: ['DB'], r2Buckets: ['CABAL'], ratelimits: { IMPORT_LIMIT: { namespace_id: '1001', simple: { limit: 10, period: 60 } } },
-  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/api/*', '/search', '/package/*'], routerConfig: { has_user_worker: true } },
+  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/', '/search', '/package/*', '/api/*', '/sitemap.xml', '/robots.txt'], routerConfig: { has_user_worker: true } },
   outboundService: async request => {
     outboundCount++;
     outboundUrls.push(request.url);
@@ -161,17 +161,66 @@ test('The Worker imports Cabal source into R2 and D1.', async () => {
       assert.equal((await request('/api/import', { name: '../secret', version: '1' }, { 'CF-Connecting-IP': '198.51.100.1' })).status, 400);
     }
     assert.equal((await request('/api/import', { name: 'sample', version: '1.2.0' }, { 'CF-Connecting-IP': '198.51.100.1' })).status, 429);
-    // The Worker serves the static page for package and search paths.
-    const home = await mf.dispatchFetch('http://localhost/');
-    const page = await home.text();
-    assert.match(page, /<title>AIHC Hackage/);
-    for (const path of ['/package/sample', '/package/sample/1.2.0/readme', '/search?q=sample']) {
-      const response = await mf.dispatchFetch(`http://localhost${path}`);
-      assert.equal(response.status, 200, path);
-      assert.match(response.headers.get('content-type'), /^text\/html/);
-      assert.equal(await response.text(), page, path);
-    }
-    assert.equal((await mf.dispatchFetch('http://localhost/package/sample', { method: 'POST' })).status, 405);
-    assert.equal((await mf.dispatchFetch('http://localhost/missing')).status, 404);
+    // The Worker renders the home page, the search page, and the package pages.
+    const pageOf = async (path, options) => {
+      const response = await mf.dispatchFetch(`http://localhost${path}`, options);
+      return { status: response.status, headers: response.headers, text: await response.text() };
+    };
+    const home = await pageOf('/');
+    assert.equal(home.status, 200);
+    assert.match(home.headers.get('content-type'), /^text\/html/);
+    assert.equal(home.headers.get('cache-control'), 'public, max-age=60');
+    assert.match(home.headers.get('content-security-policy'), /default-src 'self'/);
+    assert.match(home.text, /<title>AIHC Hackage · Haskell packages<\/title>/);
+    assert.match(home.text, /<link rel="canonical" href="http:\/\/localhost\/">/);
+    assert.match(home.text, /href="\/package\/sample\/1.10.0"/);
+    const results = await pageOf('/search?q=sample');
+    assert.match(results.text, /<meta name="robots" content="noindex">/);
+    assert.match(results.text, /Results for <span class="query">sample<\/span>/);
+    assert.match(results.text, /class="package-name">sample</);
+    assert.match(results.text, /value="sample"/);
+    assert.match((await pageOf('/search?q=<nothing>')).text, /No imported package matches\.[\s\S]*data-import-name=""/);
+    assert.match((await pageOf('/search?q=nothing')).text, /data-import-name="nothing"/);
+    const readmePage = await pageOf('/package/sample/1.2.0/readme');
+    assert.equal(readmePage.status, 200);
+    assert.match(readmePage.text, /<title>sample-1.2.0 · AIHC Hackage<\/title>/);
+    assert.match(readmePage.text, /<meta name="description" content="Revised catalogue entry">/);
+    assert.match(readmePage.text, /<meta property="og:title" content="sample-1.2.0">/);
+    assert.match(readmePage.text, /<link rel="canonical" href="http:\/\/localhost\/package\/sample\/1.2.0">/);
+    assert.match(readmePage.text, /<a href="\/package\/sample\/1.2.0\/readme" data-tab="readme" aria-current="page">/);
+    assert.match(readmePage.text, /<h2>Sample<\/h2>/);
+    assert.match(readmePage.text, /&lt;script&gt;alert\(&quot;unsafe&quot;\)&lt;\/script&gt;/);
+    assert.doesNotMatch(readmePage.text, /<script>alert/);
+    assert.match(readmePage.text, /λ/);
+    const description = await pageOf('/package/sample/1.2.0/description');
+    assert.match(description.text, /<link rel="canonical" href="http:\/\/localhost\/package\/sample\/1.2.0\/description">/);
+    assert.match(description.text, /<div class="prose"><p>Sample metadata with Unicode λ\.<\/p><\/div>/);
+    const dependencies = await pageOf('/package/sample/1.2.0/dependencies');
+    assert.match(dependencies.text, /<a href="\/package\/containers">containers<\/a>/);
+    assert.match(dependencies.text, /<code class="condition">flag\(extra\)<\/code>/);
+    assert.match((await pageOf('/package/containers')).text, /Import containers from Hackage/);
+    assert.match((await pageOf('/package/sample/1.2.0/changelog')).text, /<pre class="package-document"># Changes\n\n\* Add a sample module\.\n<\/pre>/);
+    const latest = await pageOf('/package/sample');
+    assert.match(latest.text, /<link rel="canonical" href="http:\/\/localhost\/package\/sample\/1.10.0">/);
+    assert.match(latest.text, /The document is not available\./);
+    assert.match(latest.text, /<a href="\/package\/sample\/1.2.0">1.2.0<\/a>/);
+    const dependents = await pageOf('/package/containers/0.6/dependents');
+    assert.equal(dependents.status, 404);
+    const missing = await pageOf('/package/nothing');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.headers.get('cache-control'), 'no-store');
+    assert.match(missing.text, /<meta name="robots" content="noindex">/);
+    assert.match(missing.text, /data-import-name="nothing" data-import-version="">Import nothing from Hackage<\/button>/);
+    assert.match((await pageOf('/package/sample/9')).text, /This package version has not been imported\./);
+    assert.equal((await pageOf('/package/bad%20name/1')).status, 400);
+    assert.equal((await pageOf('/package/sample/1.2.0/unknown')).status, 404);
+    assert.equal((await pageOf('/search?offset=-1')).status, 400);
+    assert.equal((await pageOf('/package/sample', { method: 'POST' })).status, 405);
+    assert.equal((await pageOf('/missing')).status, 404);
+    const map = await pageOf('/sitemap.xml');
+    assert.match(map.headers.get('content-type'), /^application\/xml/);
+    assert.match(map.text, /<loc>http:\/\/localhost\/package\/sample\/1.2.0<\/loc>/);
+    assert.match(map.text, /<loc>http:\/\/localhost\/package\/sample\/1.10.0<\/loc>/);
+    assert.match((await pageOf('/robots.txt')).text, /Sitemap: http:\/\/localhost\/sitemap.xml/);
   } finally { await mf.dispose(); }
 });

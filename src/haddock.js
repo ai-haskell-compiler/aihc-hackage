@@ -1,6 +1,7 @@
-// Render the Haddock markup subset that Cabal descriptions use.
-// The renderer creates DOM nodes and does not parse HTML.
+// Render the Haddock markup subset that Cabal descriptions use as HTML text.
+// The renderer escapes all source text and does not parse HTML.
 // A line that contains only "." separates paragraphs, as in Haddock.
+import { escape } from './html.js';
 
 const INLINE = new RegExp([
   String.raw`\[([^\]\n]+)\]\(([^)\s]+)\)`, // 1, 2: [label](url)
@@ -15,73 +16,47 @@ const INLINE = new RegExp([
 ].join('|'), 'g');
 
 const safeUrl = url => /^https?:\/\//i.test(url) ? url : null;
+const anchor = (text, href) => `<a href="${escape(href)}" rel="nofollow noopener">${escape(text)}</a>`;
 
-function anchor(text, href) {
-  const node = document.createElement('a');
-  node.textContent = text;
-  node.href = href;
-  node.rel = 'nofollow noopener';
-  return node;
-}
 function inline(text, moduleHref) {
-  const fragment = document.createDocumentFragment();
+  let out = '';
   let last = 0;
   for (const match of text.matchAll(INLINE)) {
-    fragment.append(text.slice(last, match.index));
+    out += escape(text.slice(last, match.index));
     last = match.index + match[0].length;
     const [whole, label, url, angleUrl, angleLabel, bareUrl, code, module, identifier, bold, emphasis, escaped] = match;
     if (label !== undefined) {
       const href = safeUrl(url);
-      fragment.append(href ? anchor(label, href) : label);
-    } else if (angleUrl !== undefined) fragment.append(anchor(angleLabel || angleUrl, angleUrl));
-    else if (bareUrl !== undefined) fragment.append(anchor(bareUrl, bareUrl));
-    else if (code !== undefined) { const node = document.createElement('code'); node.append(inline(code, moduleHref)); fragment.append(node); }
-    else if (module !== undefined) {
-      const node = document.createElement('a');
-      node.href = moduleHref(module);
-      const code = document.createElement('code'); code.textContent = module; node.append(code);
-      fragment.append(node);
-    } else if (identifier !== undefined) { const node = document.createElement('code'); node.textContent = identifier; fragment.append(node); }
-    else if (bold !== undefined) { const node = document.createElement('strong'); node.append(inline(bold, moduleHref)); fragment.append(node); }
-    else if (emphasis !== undefined) { const node = document.createElement('em'); node.append(inline(emphasis, moduleHref)); fragment.append(node); }
-    else if (escaped !== undefined) fragment.append(escaped);
-    else fragment.append(whole);
+      out += href ? anchor(label, href) : escape(label);
+    } else if (angleUrl !== undefined) out += anchor(angleLabel || angleUrl, angleUrl);
+    else if (bareUrl !== undefined) out += anchor(bareUrl, bareUrl);
+    else if (code !== undefined) out += `<code>${inline(code, moduleHref)}</code>`;
+    else if (module !== undefined) out += `<a href="${escape(moduleHref(module))}"><code>${escape(module)}</code></a>`;
+    else if (identifier !== undefined) out += `<code>${escape(identifier)}</code>`;
+    else if (bold !== undefined) out += `<strong>${inline(bold, moduleHref)}</strong>`;
+    else if (emphasis !== undefined) out += `<em>${inline(emphasis, moduleHref)}</em>`;
+    else if (escaped !== undefined) out += escape(escaped);
+    else out += escape(whole);
   }
-  fragment.append(text.slice(last));
-  return fragment;
+  return out + escape(text.slice(last));
 }
 
 const LIST_ITEM = /^\s*(?:([*-])|\((\d+)\)|(\d+)\.)\s+(.*)$/;
 const HEADING = /^(={1,6})\s+(.*)$/;
 
 export function haddock(source, moduleHref = () => '#') {
-  const fragment = document.createDocumentFragment();
+  let out = '';
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   let paragraph = null;
   let list = null;
   let code = null;
   const close = () => {
-    if (paragraph) {
-      const node = document.createElement('p');
-      node.append(inline(paragraph.join(' '), moduleHref));
-      fragment.append(node);
-    }
+    if (paragraph) out += `<p>${inline(paragraph.join(' '), moduleHref)}</p>`;
     if (list) {
-      const node = document.createElement(list.ordered ? 'ol' : 'ul');
-      for (const item of list.items) {
-        const li = document.createElement('li');
-        li.append(inline(item.join(' '), moduleHref));
-        node.append(li);
-      }
-      fragment.append(node);
+      const tag = list.ordered ? 'ol' : 'ul';
+      out += `<${tag}>${list.items.map(item => `<li>${inline(item.join(' '), moduleHref)}</li>`).join('')}</${tag}>`;
     }
-    if (code) {
-      const pre = document.createElement('pre');
-      const node = document.createElement('code');
-      node.textContent = code.join('\n');
-      pre.append(node);
-      fragment.append(pre);
-    }
+    if (code) out += `<pre><code>${escape(code.join('\n'))}</code></pre>`;
     paragraph = list = code = null;
   };
   for (let index = 0; index < lines.length; index++) {
@@ -103,9 +78,8 @@ export function haddock(source, moduleHref = () => '#') {
     if (code) close();
     const heading = HEADING.exec(trimmed);
     if (heading && !paragraph && !list) {
-      const node = document.createElement(`h${Math.min(6, heading[1].length + 2)}`);
-      node.append(inline(heading[2], moduleHref));
-      fragment.append(node);
+      const level = Math.min(6, heading[1].length + 2);
+      out += `<h${level}>${inline(heading[2], moduleHref)}</h${level}>`;
       continue;
     }
     const item = LIST_ITEM.exec(line);
@@ -121,5 +95,5 @@ export function haddock(source, moduleHref = () => '#') {
     paragraph.push(trimmed);
   }
   close();
-  return fragment;
+  return out;
 }
