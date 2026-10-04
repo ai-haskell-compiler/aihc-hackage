@@ -108,6 +108,8 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .empty h3{color:var(--text);font-size:1.3rem;margin:0 0 8px}
 .empty p{margin:0}
 .pager{display:flex;gap:12px;justify-content:center;margin:28px 0}
+.pager a{font:500 14px var(--sans);border:1px solid var(--border);border-radius:8px;color:var(--text);background:var(--surface);padding:10px 20px;text-decoration:none}
+.pager a:hover{border-color:var(--accent)}
 
 /* Package page */
 body[data-page=package] #status:empty{display:none}
@@ -162,6 +164,7 @@ body[data-page=package] #status:empty{display:none}
 .markdown th,.markdown td{border:1px solid var(--border);padding:6px 12px;text-align:left;vertical-align:top}
 .markdown th{background:var(--code-background);font-weight:600}
 .markdown img{max-width:100%;height:auto;vertical-align:middle;border-radius:4px}
+.markdown .align-left{text-align:left}.markdown .align-center{text-align:center}.markdown .align-right{text-align:right}
 
 /* Documents, modules, and dependencies */
 .package-document{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65;background:var(--code-background);border:1px solid var(--border);border-radius:10px;padding:20px;margin:0}

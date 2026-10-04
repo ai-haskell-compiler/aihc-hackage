@@ -1,5 +1,6 @@
 import { parseCabal } from './parser.js';
 import { contentDigest, importDocuments, documentMetadata } from './documents.js';
+import { TAB_NAMES, cataloguePage, packagePage, missingPackagePage, errorPage, sitemap, robots } from './pages.js';
 
 const MAX_CABAL = 1024 * 1024;
 const NAME = /^(?=.{1,128}$)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
@@ -116,11 +117,14 @@ async function importPackage(request, env) {
   await env.DB.batch(statements);
   return json({ name, version, sha256, warnings: metadata.warnings }, 201);
 }
-async function search(url, env) {
+function searchParameters(url) {
   const query = (url.searchParams.get('q') || '').trim();
   if (query.length > 200) throw new HttpError(400, 'The search text exceeds 200 characters.');
   const offset = Number(url.searchParams.get('offset') || 0);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000) throw new HttpError(400, 'The page offset is invalid.');
+  return { query, offset };
+}
+async function searchPackages(query, offset, env) {
   const tokens = query.match(/[\p{L}\p{N}_]+/gu) || [];
   const matches = tokens.map(token => `"${token}"*`).join(' AND ');
   let result;
@@ -129,13 +133,13 @@ async function search(url, env) {
       FROM releases r WHERE r.rowid IN (SELECT rowid FROM releases_fts WHERE releases_fts MATCH ?)
       AND r.version_sort=(SELECT MAX(v.version_sort) FROM releases v WHERE v.name=r.name)
       ORDER BY r.name LIMIT 31 OFFSET ?`).bind(matches, offset).all();
-  } else if (query) return json({ packages: [], hasMore: false, offset });
+  } else if (query) return { packages: [], hasMore: false, offset };
   else result = await env.DB.prepare(`SELECT ${summaryColumns} FROM releases r
     WHERE version_sort=(SELECT MAX(v.version_sort) FROM releases v WHERE v.name=r.name)
     ORDER BY name LIMIT 31 OFFSET ?`).bind(offset).all();
-  return json({ packages: result.results.slice(0, 30), hasMore: result.results.length > 30, offset });
+  return { packages: result.results.slice(0, 30), hasMore: result.results.length > 30, offset };
 }
-async function packageDetail(name, version, env) {
+async function loadPackage(name, version, env) {
   validateName(name);
   const versions = await env.DB.prepare('SELECT version, imported_at FROM releases WHERE name=? ORDER BY version_sort DESC').bind(name).all();
   if (!versions.results.length) throw new HttpError(404, 'This package has no imported versions.');
@@ -146,42 +150,110 @@ async function packageDetail(name, version, env) {
   const object = await env.CABAL.get(row.metadata_key);
   if (!object) throw new HttpError(503, 'The package metadata is not available.');
   const metadata = await object.json();
-  return json({ ...metadata, documents: await documentMetadata(name, selected, env), versions: versions.results });
+  return { ...metadata, documents: await documentMetadata(name, selected, env), versions: versions.results };
 }
+async function loadReverse(name, env) {
+  validateName(name);
+  const result = await env.DB.prepare(`SELECT DISTINCT name, version, component, version_range, condition, libraries
+    FROM dependencies WHERE dependency=? ORDER BY name, version LIMIT 201`).bind(name).all();
+  return { dependencies: result.results.slice(0, 200), truncated: result.results.length > 200 };
+}
+// Return the saved document row. The row has an object key when the document is available.
+async function documentRow(name, version, kind, env) {
+  validateName(name); validateVersion(version);
+  const release = await env.DB.prepare('SELECT 1 FROM releases WHERE name=? AND version=?').bind(name, version).first();
+  if (!release) throw new HttpError(404, 'This package version has not been imported.');
+  const row = await env.DB.prepare('SELECT status, object_key, error, sha256 FROM package_documents WHERE name=? AND version=? AND kind=?')
+    .bind(name, version, kind).first();
+  if (!row) throw new HttpError(404, 'The document has not been imported. Import this version again.');
+  if (row.status === 'missing') throw new HttpError(404, 'Hackage does not have this document.');
+  if (row.status === 'failed') throw new HttpError(503, row.error);
+  return row;
+}
+// Return the saved document text for a page, or null when the object is not available.
+async function documentText(pkg, kind, env) {
+  if (pkg.documents[kind]?.status !== 'available') return null;
+  const row = await env.DB.prepare('SELECT object_key FROM package_documents WHERE name=? AND version=? AND kind=?')
+    .bind(pkg.name, pkg.version, kind).first();
+  const object = row && await env.CABAL.get(row.object_key);
+  return object ? object.text() : null;
+}
+
+const PAGE_HEADERS = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' https:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+};
+const PACKAGE_PATH = new RegExp(`^/package/([^/]+)(?:/([^/]+))?(?:/(${TAB_NAMES.join('|')}))?/?$`);
+function page(text, status = 200) {
+  return new Response(text, { status, headers: { ...PAGE_HEADERS, 'Cache-Control': status === 200 ? 'public, max-age=60' : 'no-store' } });
+}
+function decode(part) {
+  try { return decodeURIComponent(part); } catch { throw new HttpError(400, 'The link is not valid.'); }
+}
+// Render a site page. API errors become HTML error pages.
+async function renderPage(request, env, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
+  const origin = url.origin;
+  if (url.pathname === '/sitemap.xml') {
+    const releases = await env.DB.prepare('SELECT name, version, imported_at FROM releases ORDER BY name, version_sort').all();
+    return new Response(sitemap(origin, releases.results), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  }
+  if (url.pathname === '/robots.txt') {
+    return new Response(robots(origin), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  }
+  if (url.pathname === '/' || url.pathname === '/search') {
+    const { query, offset } = searchParameters(url);
+    return page(cataloguePage({ origin, query, ...await searchPackages(query, offset, env) }));
+  }
+  const match = PACKAGE_PATH.exec(url.pathname);
+  if (!match) throw new HttpError(404, 'This page does not exist.');
+  const name = decode(match[1]);
+  const version = match[2] && decode(match[2]);
+  const tab = match[3];
+  if (version) validateVersion(version);
+  let pkg;
+  try { pkg = await loadPackage(name, version, env); }
+  catch (error) {
+    if (error instanceof HttpError && error.status === 404) return page(missingPackagePage({ name, version, message: error.message }), 404);
+    throw error;
+  }
+  const reverse = await loadReverse(name, env);
+  const documents = {};
+  const active = tab || (pkg.documents.readme.status === 'available' ? 'readme' : 'description');
+  if (active === 'readme' || active === 'changelog') documents[active] = await documentText(pkg, active, env);
+  return page(packagePage({ origin, pkg, reverse, tab, documents }));
+}
+
 export default {
   async fetch(request, env) {
-    try {
-      const url = new URL(request.url);
-      if (url.pathname === '/search' || url.pathname.startsWith('/package/')) {
-        // The client renders these pages from the static page until the Worker renders them.
-        if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
-        return env.ASSETS.fetch(new Request(new URL('/', url), { method: request.method, headers: request.headers }));
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      try {
+        if (url.pathname === '/' || url.pathname === '/search' || url.pathname.startsWith('/package/')
+          || url.pathname === '/sitemap.xml' || url.pathname === '/robots.txt') return await renderPage(request, env, url);
+        return await env.ASSETS.fetch(request);
+      } catch (error) {
+        if (error instanceof HttpError) return page(errorPage(error.message), error.status);
+        console.error(JSON.stringify({ event: 'page-error', message: error.message }));
+        return page(errorPage('The page could not be shown. Please try again.'), 500);
       }
-      if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    }
+    try {
       if (request.method === 'POST' && url.pathname === '/api/import') return await importPackage(request, env);
       if (request.method !== 'GET') throw new HttpError(405, 'This method is not available.');
-      if (url.pathname === '/api/packages') return await search(url, env);
-      const match = /^\/api\/packages\/([^/]+)(?:\/([^/]+))?$/.exec(url.pathname);
-      if (match) return await packageDetail(decodeURIComponent(match[1]), match[2] && decodeURIComponent(match[2]), env);
-      const reverse = /^\/api\/reverse\/([^/]+)$/.exec(url.pathname);
-      if (reverse) {
-        const name = decodeURIComponent(reverse[1]); validateName(name);
-        const result = await env.DB.prepare(`SELECT DISTINCT name, version, component, version_range, condition, libraries
-          FROM dependencies WHERE dependency=? ORDER BY name, version LIMIT 201`).bind(name).all();
-        return json({ dependencies: result.results.slice(0, 200), truncated: result.results.length > 200 });
+      if (url.pathname === '/api/packages') {
+        const { query, offset } = searchParameters(url);
+        return json(await searchPackages(query, offset, env));
       }
+      const match = /^\/api\/packages\/([^/]+)(?:\/([^/]+))?$/.exec(url.pathname);
+      if (match) return json(await loadPackage(decodeURIComponent(match[1]), match[2] && decodeURIComponent(match[2]), env));
+      const reverse = /^\/api\/reverse\/([^/]+)$/.exec(url.pathname);
+      if (reverse) return json(await loadReverse(decodeURIComponent(reverse[1]), env));
       const document = /^\/api\/(readme|changelog)\/([^/]+)\/([^/]+)$/.exec(url.pathname);
       if (document) {
-        const kind = document[1];
-        const name = decodeURIComponent(document[2]); const version = decodeURIComponent(document[3]);
-        validateName(name); validateVersion(version);
-        const release = await env.DB.prepare('SELECT 1 FROM releases WHERE name=? AND version=?').bind(name, version).first();
-        if (!release) throw new HttpError(404, 'This package version has not been imported.');
-        const row = await env.DB.prepare('SELECT status, object_key, error, sha256 FROM package_documents WHERE name=? AND version=? AND kind=?')
-          .bind(name, version, kind).first();
-        if (!row) throw new HttpError(404, 'The document has not been imported. Import this version again.');
-        if (row.status === 'missing') throw new HttpError(404, 'Hackage does not have this document.');
-        if (row.status === 'failed') throw new HttpError(503, row.error);
+        const row = await documentRow(decodeURIComponent(document[2]), decodeURIComponent(document[3]), document[1], env);
         const object = await env.CABAL.get(row.object_key);
         if (!object) throw new HttpError(503, 'The document is not available.');
         return new Response(object.body, { headers: {
