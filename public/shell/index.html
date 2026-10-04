@@ -7,22 +7,25 @@
   <meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#151318" media="(prefers-color-scheme: dark)">
   <title>AIHC Shell · Browser WASI environment</title>
-  <link rel="icon" href="/shell/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/shell/assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/shell/assets/xterm.css">
   <link rel="stylesheet" href="/shell/style.css">
+  <script src="/theme.js"></script>
   <script type="module" src="/shell/assets/app.js"></script>
 </head>
 <body>
   <a class="skip" href="#terminal">Skip to terminal</a>
-  <header>
-    <a class="brand" href="/"><img src="/shell/favicon.svg" width="36" height="36" alt=""><span>AIHC <strong>Shell</strong></span></a>
-    <nav aria-label="Main"><a href="/">Packages</a><a href="https://docs.aihc.app/">Manual</a><button id="theme" type="button">Theme: system</button></nav>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="mark"><svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs><clipPath id="mark-clip"><polygon points="18,18 62,18 40,88"/></clipPath></defs><g fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M24 54 Q40 36 56 54" clip-path="url(#mark-clip)" stroke-linecap="butt"/><path d="M18 18 L40 88 L62 18"/><path d="M64 88 L79.1 40"/><circle cx="86" cy="18" r="6" fill="currentColor" stroke="none"/></g></svg></span><span>AIHC <strong>Shell</strong></span></a>
+    <nav aria-label="Main"><a href="/">Packages</a><a href="/shell/" aria-current="page">Shell</a><a href="https://docs.aihc.app/">Manual<span aria-hidden="true"> ↗</span></a><button id="theme" class="icon-button" type="button" title="Use the light mode"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d=""/></svg></button></nav>
   </header>
-  <main>
+  <main id="content" class="shell-page">
     <section class="intro"><p class="eyebrow">WASM IN YOUR BROWSER</p><h1>A small machine.<br>A place to build.</h1><p>Run WASI programs. Compile C. Connect commands with pipes. <br>Your home directory stays in this browser.</p></section>
     <section class="workspace" aria-label="Browser shell">
-      <div class="toolbar"><span class="session"><span aria-hidden="true">●</span> <span id="runtime-status" role="status">Starting…</span></span><div class="actions"><button id="upload" type="button">Upload files</button><button id="download" type="button">Download file</button><button id="stop" type="button" disabled>Stop</button></div></div>
-      <form id="download-form" class="download-form" hidden><label for="download-path">File path</label><input id="download-path" required autocomplete="off"><button type="submit">Download</button><button id="download-cancel" type="button">Cancel</button></form>
+      <div class="toolbar"><span class="session"><span aria-hidden="true">●</span> <span id="runtime-status" role="status">Starting…</span></span><div class="actions"><button id="upload" class="secondary" type="button">Upload files</button><button id="download" class="secondary" type="button">Download file</button><button id="stop" class="secondary" type="button" disabled>Stop</button></div></div>
+      <form id="download-form" class="download-form" hidden><label for="download-path">File path</label><input id="download-path" required autocomplete="off"><button type="submit">Download</button><button id="download-cancel" class="secondary" type="button">Cancel</button></form>
       <input id="files" type="file" multiple hidden>
       <div id="terminal" tabindex="0" aria-label="Shell terminal"></div>
       <div class="statusbar"><span id="cwd">/home/user</span><span id="storage-status" role="status">Opening file storage…</span></div>
@@ -39,6 +42,6 @@ wait</pre><p>Use <kbd>↑</kbd> and <kbd>↓</kbd> for command history. Use <kbd
     </section>
     <noscript><p>Enable JavaScript to use the browser shell.</p></noscript>
   </main>
-  <footer><span>AIHC Shell</span><span><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a> · <a href="/shell/LLVM-LICENSE.txt">LLVM license</a> · <a href="/shell/THIRD-PARTY.txt">Credits</a></span></footer>
+  <footer class="site-footer"><p>AIHC Shell · Programs run in this browser</p><nav aria-label="Footer"><a href="/shell/LLVM-LICENSE.txt">LLVM license</a><a href="/shell/THIRD-PARTY.txt">Credits</a><a href="https://blog.aihc.app/">Journal</a><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a></nav></footer>
 </body>
 </html>

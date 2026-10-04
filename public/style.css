@@ -72,6 +72,7 @@ input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:tran
 .header-search:not([hidden])+nav{margin-left:0}
 .site-header nav a{color:var(--muted);border-radius:6px;padding:6px 10px;text-decoration:none}
 .site-header nav a:hover{color:var(--text);background:var(--soft-accent)}
+.site-header nav a[aria-current=page]{color:var(--accent)}
 .site-footer{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:80px;padding-top:28px;padding-bottom:36px;border-top:1px solid var(--border);color:var(--muted);font-size:14px}
 .site-footer p{margin:0}
 .site-footer a,.site-footer .link-button{color:var(--muted);text-decoration:none;font-size:14px}
@@ -146,12 +147,26 @@ body[data-page=package] #status:empty{display:none}
 .prose pre{font-size:.78em;background:var(--code-background);border:1px solid var(--border);border-radius:10px;padding:16px 20px;overflow:auto;margin:0 0 1.2em;line-height:1.6}
 .prose pre code{border:0;padding:0;background:none;font-size:inherit}
 
+/* README Markdown */
+.markdown h2,.markdown h3,.markdown h4,.markdown h5,.markdown h6{margin:1.8em 0 .5em;line-height:1.25}
+.markdown h2{font-size:1.9rem}
+.markdown blockquote{margin:0 0 1.1em;padding:0 0 0 1em;border-left:3px solid var(--border);color:var(--muted)}
+.markdown hr{border:0;border-top:1px solid var(--border);margin:2em 0}
+.markdown li>p{margin-bottom:.5em}
+.markdown li>ul,.markdown li>ol{margin-bottom:0}
+.markdown li.task{list-style:none}
+.markdown li.task input{margin:0 .4em 0 -1.4em;accent-color:var(--accent)}
+.markdown pre code{white-space:pre}
+.markdown .table-scroll{overflow-x:auto;margin:0 0 1.2em}
+.markdown table{border-collapse:collapse;font-family:var(--sans);font-size:14px;line-height:1.5}
+.markdown th,.markdown td{border:1px solid var(--border);padding:6px 12px;text-align:left;vertical-align:top}
+.markdown th{background:var(--code-background);font-weight:600}
+.markdown img{max-width:100%;height:auto;vertical-align:middle;border-radius:4px}
+
 /* Documents, modules, and dependencies */
 .package-document{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65;background:var(--code-background);border:1px solid var(--border);border-radius:10px;padding:20px;margin:0}
 .module-list{columns:2;column-gap:32px;list-style:none;padding:0;margin:0;font:14px var(--mono)}
 .module-list li{padding:5px 0;break-inside:avoid;overflow-wrap:anywhere}
-.module-list a{text-decoration:none}
-.module-list a:hover{text-decoration:underline}
 .dependency-table{width:100%;border-collapse:collapse;font-size:14px}
 .dependency-table th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px 8px 0;border-bottom:1px solid var(--border)}
 .dependency-table td{padding:9px 12px 9px 0;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}

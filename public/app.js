@@ -1,4 +1,5 @@
 import { haddock } from './haddock.js';
+import { markdown } from './markdown.js';
 
 const view = document.querySelector('#view');
 const home = document.querySelector('#home');
@@ -23,7 +24,7 @@ const element = (tag, text, className) => {
   return node;
 };
 const encode = encodeURIComponent;
-const packageHref = (name, version, tab) => `#package/${encode(name)}${version ? `/${encode(version)}` : ''}${tab && tab !== 'description' ? `/${tab}` : ''}`;
+const packageHref = (name, version, tab) => `#package/${encode(name)}${version ? `/${encode(version)}` : ''}${tab ? `/${tab}` : ''}`;
 const searchHref = query => query ? `#search/${encode(query)}` : '#';
 const link = (text, href, className) => { const node = element('a', text, className); node.href = href; return node; };
 const externalLink = (text, href) => { const node = link(text, href); node.rel = 'nofollow noopener'; return node; };
@@ -116,18 +117,20 @@ function documentTab(pkg, kind) {
   const record = pkg.documents?.[kind] || { status: 'not_imported' };
   if (record.status === 'available') {
     const href = `/api/${kind}/${encode(pkg.name)}/${encode(pkg.version)}`;
-    const text = element('pre', 'Please wait for the document.', 'package-document');
+    // Show a README as Markdown. Show a changelog as plain text.
+    const text = kind === 'readme' ? element('div', 'Please wait for the document.', 'prose markdown') : element('pre', 'Please wait for the document.', 'package-document');
+    const show = source => { if (kind === 'readme') text.replaceChildren(markdown(source)); else text.textContent = source; };
     const actions = element('p', undefined, 'tab-actions');
     actions.append(link(`Open the ${title} as plain text ↗`, href));
     node.append(text, actions);
     current.documents ||= {};
     const cached = current.documents[kind];
-    if (cached !== undefined) text.textContent = cached;
+    if (cached !== undefined) show(cached);
     else (async () => {
       try {
         const response = await fetch(href);
         if (!response.ok) throw new Error('The document is not available. Open the file link to try again.');
-        text.textContent = current.documents[kind] = await response.text();
+        show(current.documents[kind] = await response.text());
       } catch (error) { text.textContent = error.message; }
     })();
   } else if (record.status === 'missing') node.append(emptyNote(`Hackage does not have a ${title} file for this version.`));
@@ -155,7 +158,7 @@ function apiTab(pkg) {
   const node = element('div');
   if (!pkg.exposedModules.length) return emptyNote('This package does not expose modules.');
   const list = element('ul', undefined, 'module-list');
-  for (const name of [...pkg.exposedModules].sort()) { const item = element('li'); item.append(link(name, searchHref(name))); list.append(item); }
+  for (const name of [...pkg.exposedModules].sort()) { const item = element('li'); item.append(name); list.append(item); }
   node.append(note('This list includes modules from all conditional branches.'), list);
   return node;
 }
@@ -253,7 +256,6 @@ function sidebar(pkg) {
     fact('Maintainer', field('maintainer') ? people(field('maintainer')) : 'Not specified'),
     fact('Homepage', /^https?:\/\//.test(homepage) ? externalLink(homepage.replace(/^https?:\/\//, '').replace(/\/$/, ''), homepage) : homepage || 'Not specified'),
     fact('Source', externalLink('View on Hackage ↗', `https://hackage.haskell.org/package/${pkg.name}-${pkg.version}`)),
-    fact('Cabal file', link('View the imported file ↗', `/api/cabal/${encode(pkg.name)}/${encode(pkg.version)}`)),
   );
   facts.append(list); aside.append(facts);
   const versions = element('section', undefined, 'panel');
@@ -279,8 +281,11 @@ function tabCount(pkg, reverse, tab) {
   if (tab === 'dependents') return new Set(reverse.dependencies.map(dep => dep.name)).size;
   return undefined;
 }
+// Show the README first if it is available. Otherwise show the description.
+function defaultTab(pkg) { return pkg.documents?.readme?.status === 'available' ? 'readme' : 'description'; }
 function renderTab() {
-  const { pkg, reverse, tab } = current;
+  const { pkg, reverse } = current;
+  const tab = current.tab || defaultTab(pkg);
   for (const node of view.querySelectorAll('.tabs a')) {
     if (node.dataset.tab === tab) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
   }
@@ -293,7 +298,7 @@ function renderTab() {
   panel.replaceChildren(builders[tab]());
   panel.setAttribute('aria-label', TABS.find(([key]) => key === tab)[1]);
   for (const node of view.querySelectorAll('.version-links a')) {
-    node.href = packageHref(pkg.name, node.textContent, tab);
+    node.href = packageHref(pkg.name, node.textContent, current.tab);
   }
 }
 function renderPackage() {
@@ -361,8 +366,12 @@ function route() {
   const pkg = new RegExp(`^#package/([^/]+)(?:/([0-9][^/]*))?(?:/(${tabNames}))?$`).exec(location.hash);
   const search = /^#search\/(.*)$/.exec(location.hash);
   try {
-    if (pkg) detail(decodeURIComponent(pkg[1]), pkg[2] && decodeURIComponent(pkg[2]), pkg[3] || 'description');
-    else catalogue(search ? decodeURIComponent(search[1]) : '', 0);
+    if (pkg) detail(decodeURIComponent(pkg[1]), pkg[2] && decodeURIComponent(pkg[2]), pkg[3]);
+    else {
+      catalogue(search ? decodeURIComponent(search[1]) : '', 0);
+      // The search field is hidden at load, so the autofocus attribute has no effect.
+      queryInput.focus({ preventScroll: true });
+    }
   } catch { message('The link is not valid.', true); }
 }
 function search(query, replace = false) {
@@ -390,7 +399,7 @@ async function importVersion(name, version) {
   const result = await api('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, version }) });
   current = null;
   const href = packageHref(result.name, result.version);
-  if (location.hash === href) await detail(result.name, result.version, 'description'); else location.hash = href;
+  if (location.hash === href) await detail(result.name, result.version); else location.hash = href;
 }
 document.querySelector('#open-import').onclick = () => openImport();
 document.querySelector('#import-cancel').onclick = () => importDialog.close();
