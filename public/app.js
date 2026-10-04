@@ -75,6 +75,35 @@ function dependencyRow(dep, reverse = false) {
 }
 function panel(title) { const node = element('section', undefined, 'panel'); node.append(element('h3', title)); return node; }
 function fact(title, value) { const node = element('div', undefined, 'fact'); node.append(element('span', title), typeof value === 'string' ? element('div', value) : value); return node; }
+function documentPanel(pkg, kind) {
+  const title = kind === 'readme' ? 'README' : 'Changelog';
+  const node = panel(title);
+  const document = pkg.documents?.[kind] || { status: 'not_imported' };
+  if (document.status === 'available') {
+    const href = `/api/${kind}/${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}`;
+    node.append(link(`View ${title} file ↗`, href));
+    const text = element('pre', 'Please wait for the document.', 'package-document');
+    node.append(text);
+    node.load = async () => {
+      try {
+        const response = await fetch(href);
+        if (!response.ok) throw new Error('The document is not available. Open the file link to try again.');
+        text.textContent = await response.text();
+      } catch (error) { text.textContent = error.message; }
+    };
+  } else if (document.status === 'missing') node.append(element('p', `Hackage does not have a ${kind === 'readme' ? 'README' : 'changelog'} file for this version.`));
+  else {
+    node.append(element('p', document.error || 'The document has not been imported.'));
+    const retry = element('button', 'Import documents');
+    retry.onclick = async () => {
+      retry.disabled = true;
+      try { await importVersion(pkg.name, pkg.version); }
+      finally { retry.disabled = false; }
+    };
+    node.append(retry);
+  }
+  return node;
+}
 async function detail(name, version) {
   const number = ++requestNumber;
   message('Please wait for the package metadata.');
@@ -88,6 +117,8 @@ async function detail(name, version) {
     const main = element('div'); const aside = element('aside');
     const description = panel((pkg.fields.synopsis || ['Package description']).join('\n'));
     description.append(element('p', (pkg.fields.description || ['No description in the Cabal file.']).join('\n'))); main.append(description);
+    const documents = ['readme', 'changelog'].map(kind => documentPanel(pkg, kind));
+    main.append(...documents);
     const modules = panel('Exposed modules');
     modules.append(element('p', 'This list includes modules from all conditional branches.', 'condition-note'));
     const moduleList = element('ul', undefined, 'module-list');
@@ -118,6 +149,7 @@ async function detail(name, version) {
     versions.append(versionLinks); aside.append(versions);
     if (pkg.warnings.length) { const warnings = panel('Parser warnings'); for (const warning of pkg.warnings) warnings.append(element('p', warning)); aside.append(warnings); }
     grid.append(main, aside); content.append(grid); message('');
+    await Promise.all(documents.map(node => node.load?.()));
   } catch (error) {
     if (number !== requestNumber) return;
     content.replaceChildren(link('← Package catalogue', '#', 'back'), heading(name), element('p', error.message));
@@ -138,15 +170,18 @@ document.querySelector('#search-form').onsubmit = event => {
   event.preventDefault(); catalogueQuery = queryInput.value.trim(); catalogueOffset = 0;
   if (location.hash) location.hash = ''; else catalogue(catalogueQuery);
 };
-document.querySelector('#import-form').onsubmit = async event => {
-  event.preventDefault(); const button = document.querySelector('#import-button'); button.disabled = true;
-  const name = document.querySelector('#import-name').value.trim(); const version = document.querySelector('#import-version').value.trim();
+async function importVersion(name, version) {
   message(`Import ${name}-${version} from Hackage. Please wait.`);
   try {
     const result = await api('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, version }) });
     const href = packageHref(result.name, result.version);
     if (location.hash === href) await detail(result.name, result.version); else location.hash = href;
   } catch (error) { message(error.message, true); }
+}
+document.querySelector('#import-form').onsubmit = async event => {
+  event.preventDefault(); const button = document.querySelector('#import-button'); button.disabled = true;
+  const name = document.querySelector('#import-name').value.trim(); const version = document.querySelector('#import-version').value.trim();
+  try { await importVersion(name, version); }
   finally { button.disabled = false; }
 };
 window.addEventListener('hashchange', route);

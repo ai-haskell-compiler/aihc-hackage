@@ -1,4 +1,5 @@
 import { parseCabal } from './parser.js';
+import { contentDigest, importDocuments, documentMetadata } from './documents.js';
 
 const MAX_CABAL = 1024 * 1024;
 const NAME = /^(?=.{1,128}$)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
@@ -13,7 +14,10 @@ function json(value, status = 200) {
   return Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 }
 async function limitedBytes(response, limit) {
-  if (Number(response.headers.get('content-length')) > limit) throw new HttpError(413, 'The file exceeds the size limit.');
+  if (Number(response.headers.get('content-length')) > limit) {
+    await response.body?.cancel();
+    throw new HttpError(413, 'The file exceeds the size limit.');
+  }
   if (!response.body) return new Uint8Array();
   const reader = response.body.getReader();
   const chunks = [];
@@ -85,8 +89,7 @@ async function importPackage(request, env) {
   if (metadata.name !== name || metadata.version !== version) throw new HttpError(422, 'The Cabal file has a different package name or version.');
   const { dependencies, modules } = collect(metadata);
   if (dependencies.length > 2000) throw new HttpError(413, 'The package exceeds the dependency limit.');
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const sha256 = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  const sha256 = await contentDigest(bytes);
   const importedAt = new Date().toISOString();
   const prefix = `packages/${name}/${version}/${sha256}`;
   const cabalKey = `${prefix}.cabal`;
@@ -95,6 +98,7 @@ async function importPackage(request, env) {
   // Store immutable objects before the database points to them.
   await env.CABAL.put(cabalKey, bytes, { httpMetadata: { contentType: 'text/plain; charset=utf-8' } });
   await env.CABAL.put(metadataKey, JSON.stringify(complete), { httpMetadata: { contentType: 'application/json' } });
+  const documentStatements = await importDocuments(name, version, env, limitedBytes);
   const upsert = env.DB.prepare(`INSERT INTO releases
     (name, version, version_sort, synopsis, description, license, modules, metadata_key, cabal_key, sha256, imported_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -108,6 +112,7 @@ async function importPackage(request, env) {
   for (const dep of dependencies) statements.push(env.DB.prepare(`INSERT INTO dependencies
     (name, version, dependency, component, version_range, condition, libraries) VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .bind(name, version, dep.package, dep.component, dep.range, JSON.stringify(dep.conditions), JSON.stringify(dep.libraries)));
+  statements.push(...documentStatements.filter(Boolean));
   await env.DB.batch(statements);
   return json({ name, version, sha256, warnings: metadata.warnings }, 201);
 }
@@ -141,7 +146,7 @@ async function packageDetail(name, version, env) {
   const object = await env.CABAL.get(row.metadata_key);
   if (!object) throw new HttpError(503, 'The package metadata is not available.');
   const metadata = await object.json();
-  return json({ ...metadata, versions: versions.results });
+  return json({ ...metadata, documents: await documentMetadata(name, selected, env), versions: versions.results });
 }
 export default {
   async fetch(request, env) {
@@ -159,6 +164,25 @@ export default {
         const result = await env.DB.prepare(`SELECT DISTINCT name, version, component, version_range, condition, libraries
           FROM dependencies WHERE dependency=? ORDER BY name, version LIMIT 201`).bind(name).all();
         return json({ dependencies: result.results.slice(0, 200), truncated: result.results.length > 200 });
+      }
+      const document = /^\/api\/(readme|changelog)\/([^/]+)\/([^/]+)$/.exec(url.pathname);
+      if (document) {
+        const kind = document[1];
+        const name = decodeURIComponent(document[2]); const version = decodeURIComponent(document[3]);
+        validateName(name); validateVersion(version);
+        const release = await env.DB.prepare('SELECT 1 FROM releases WHERE name=? AND version=?').bind(name, version).first();
+        if (!release) throw new HttpError(404, 'This package version has not been imported.');
+        const row = await env.DB.prepare('SELECT status, object_key, error, sha256 FROM package_documents WHERE name=? AND version=? AND kind=?')
+          .bind(name, version, kind).first();
+        if (!row) throw new HttpError(404, 'The document has not been imported. Import this version again.');
+        if (row.status === 'missing') throw new HttpError(404, 'Hackage does not have this document.');
+        if (row.status === 'failed') throw new HttpError(503, row.error);
+        const object = await env.CABAL.get(row.object_key);
+        if (!object) throw new HttpError(503, 'The document is not available.');
+        return new Response(object.body, { headers: {
+          'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff',
+          'Cache-Control': 'public, max-age=86400', ETag: `"${row.sha256}"`,
+        } });
       }
       const raw = /^\/api\/cabal\/([^/]+)\/([^/]+)$/.exec(url.pathname);
       if (raw) {
