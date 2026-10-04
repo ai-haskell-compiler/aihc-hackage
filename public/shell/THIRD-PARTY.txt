@@ -1,0 +1,24 @@
+AIHC Shell uses these third-party resources:
+
+xterm.js and FitAddon
+https://github.com/xtermjs/xterm.js
+MIT license. See assets/XTERM-LICENSE.txt.
+
+browser_wasi_shim
+https://github.com/bjorn3/browser_wasi_shim
+MIT license. See assets/WASI-LICENSE.txt.
+
+Clang, LLD, and the WASI sysroot
+https://github.com/binji/wasm-clang
+Revision: 648c4a89997a351eef75cdaec3ef5b89d4937dec
+See LLVM-LICENSE.txt and TOOLCHAIN-LICENSE.txt.
+The C toolchain uses Clang 8.0.1 and its packaged WASI system files.
+
+Inter and Newsreader
+https://github.com/google/fonts
+SIL Open Font License 1.1.
+See assets/INTER-LICENSE.txt and assets/NEWSREADER-LICENSE.txt.
+
+AIHC mark, favicon, and fonts
+https://blog.aihc.app/
+https://docs.aihc.app/

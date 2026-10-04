@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#faf8f3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#151318" media="(prefers-color-scheme: dark)">
+  <title>AIHC Shell · Browser WASI environment</title>
+  <link rel="icon" href="/shell/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/shell/assets/xterm.css">
+  <link rel="stylesheet" href="/shell/style.css">
+  <script type="module" src="/shell/assets/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#terminal">Skip to terminal</a>
+  <header>
+    <a class="brand" href="/"><img src="/shell/favicon.svg" width="36" height="36" alt=""><span>AIHC <strong>Shell</strong></span></a>
+    <nav aria-label="Main"><a href="/">Packages</a><a href="https://docs.aihc.app/">Manual</a><button id="theme" type="button">Theme: system</button></nav>
+  </header>
+  <main>
+    <section class="intro"><p class="eyebrow">WASM IN YOUR BROWSER</p><h1>A small machine.<br>A place to build.</h1><p>Run WASI programs. Compile C. Connect commands with pipes. <br>Your home directory stays in this browser.</p></section>
+    <section class="workspace" aria-label="Browser shell">
+      <div class="toolbar"><span class="session"><span aria-hidden="true">●</span> <span id="runtime-status" role="status">Starting…</span></span><div class="actions"><button id="upload" type="button">Upload files</button><button id="download" type="button">Download file</button><button id="stop" type="button" disabled>Stop</button></div></div>
+      <form id="download-form" class="download-form" hidden><label for="download-path">File path</label><input id="download-path" required autocomplete="off"><button type="submit">Download</button><button id="download-cancel" type="button">Cancel</button></form>
+      <input id="files" type="file" multiple hidden>
+      <div id="terminal" tabindex="0" aria-label="Shell terminal"></div>
+      <div class="statusbar"><span id="cwd">/home/user</span><span id="storage-status" role="status">Opening file storage…</span></div>
+    </section>
+    <section class="guide" aria-label="Shell instructions">
+      <div><h2>Start here</h2><p>Enter <code>help</code> to see the commands.</p><pre>cat hello.c
+clang hello.c -o hello.wasm
+./hello.wasm</pre><button id="example" type="button">Run the C example</button></div>
+      <div><h2>Connect commands</h2><pre>echo "Hello browser" &gt; message.txt
+cat message.txt | cat
+./hello.wasm &amp;
+wait</pre><p>Use <kbd>↑</kbd> and <kbd>↓</kbd> for command history. Use <kbd>Ctrl+C</kbd> to stop a program.</p></div>
+      <div><h2>Your files</h2><p>Upload source files or WASI Preview 1 programs. Run a program with <code>./program.wasm</code>.</p><p>Files in <code>/home/user</code> are saved in IndexedDB, the browser file database. Files in <code>/tmp</code> are temporary.</p><p>AIHC and WASI components are not installed. The C toolchain loads when you first use it.</p></div>
+    </section>
+    <noscript><p>Enable JavaScript to use the browser shell.</p></noscript>
+  </main>
+  <footer><span>AIHC Shell</span><span><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a> · <a href="/shell/LLVM-LICENSE.txt">LLVM license</a> · <a href="/shell/THIRD-PARTY.txt">Credits</a></span></footer>
+</body>
+</html>

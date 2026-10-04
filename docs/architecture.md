@@ -93,6 +93,56 @@ The site domain is `hackage.aihc.app`.
 
 No compiler progress counts change in this repository.
 
+## Browser shell
+
+The `/shell/` page supplies a browser WASI environment.
+WASI is the WebAssembly System Interface.
+The page uses the browser WebAssembly engine and xterm.js terminal.
+The shell source is in `shell/`.
+Run `npm run build:shell` to build the static files.
+The normal build, check, and deployment commands also build these files.
+
+Each WASI Preview 1 command runs in a separate Web Worker.
+A Web Worker runs JavaScript on a separate browser thread.
+Each process has separate memory, arguments, environment variables, and file descriptors.
+The shell supplies small JavaScript file utilities through the same process system.
+The runtime uses `browser_wasi_shim` for WASI calls.
+It does not emulate Linux.
+
+The page keeps one filesystem for all processes in the session.
+File descriptors refer to shared filesystem objects.
+Workers send filesystem requests to the page through messages.
+A shared response buffer lets a Worker wait for a synchronous WASI call.
+Pipes use bounded shared ring buffers with atomic wait and notification operations.
+The `/shell/*` response headers enable cross-origin isolation for these buffers.
+
+The shell supports quotes, pipes, file operators, background jobs, and `wait`.
+Foreground programs receive terminal input one line at a time.
+Background programs receive closed input unless a pipe or file supplies input.
+The Stop button and Ctrl+C terminate foreground Workers.
+
+IndexedDB, the browser file database, stores `/home/user` after commands and uploads.
+The page uses a browser lock to prevent simultaneous writes from separate tabs.
+If file storage is not available, the page reports temporary storage.
+The `/tmp` directory is temporary.
+System directories are read-only.
+Upload and download controls transfer files between the computer and the virtual filesystem.
+Files remain in the browser and are not sent to the server.
+
+Clang 8.0.1, LLD, and their WASI system files come from a fixed `binji/wasm-clang` revision.
+The build checks SHA-256 digests before it compresses these assets.
+The browser loads the toolchain from this site when a compiler command first needs it.
+The runtime adapts the older WASI interface used by this toolchain.
+
+The `clang` command supports one C source file, object output, optimization levels, and include and definition options.
+The shell starts Clang and LLD as separate processes for compilation and linking.
+Use `clang -cc1` or `wasm-ld` for direct tool access.
+
+The current runtime does not include AIHC, WASI components, networking, threads, `fork`, or full terminal job control.
+Symbolic links and advanced WASI polling are not supported.
+Programs that need these interfaces can fail.
+The tests compile C, execute the output in Workers, and check pipes, background jobs, and file storage snapshots.
+
 ## Fixture source
 
 `test/fixtures/text-2.1.4.cabal` contains the published Cabal file from Hackage.

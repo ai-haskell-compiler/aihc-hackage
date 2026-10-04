@@ -3,18 +3,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/transpile.mjs",
+    "build": "node scripts/transpile.mjs && npm run build:shell",
+    "build:shell": "node scripts/build-shell.mjs",
     "dev": "wrangler dev",
     "test": "node --experimental-wasm-jspi --test test/*.test.mjs",
-    "check": "wrangler deploy --dry-run --outdir dist && npm test",
-    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy"
+    "check": "npm run build:shell && wrangler deploy --dry-run --outdir dist && npm test",
+    "deploy": "npm run build:shell && wrangler d1 migrations apply DB --remote && wrangler deploy"
   },
   "dependencies": {
-    "@bytecodealliance/jco-transpile": "0.16.0"
+    "@bjorn3/browser_wasi_shim": "0.4.2",
+    "@bytecodealliance/jco-transpile": "0.16.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0"
   },
   "devDependencies": {
-    "wrangler": "4.147.0",
+    "@cloudflare/workers-types": "5.20261003.1",
+    "esbuild": "0.28.1",
     "miniflare": "5.20261001.0-alpha",
-    "@cloudflare/workers-types": "5.20261003.1"
+    "wrangler": "4.147.0"
   }
 }

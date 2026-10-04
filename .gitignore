@@ -14,3 +14,7 @@ dist-newstyle/
 .compiler
 worker-configuration.d.ts
 *.cpuprofile
+public/shell/assets/app.js
+public/shell/assets/process-worker.js
+public/shell/assets/xterm.css
+public/shell/toolchain/
