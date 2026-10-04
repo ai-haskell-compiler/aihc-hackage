@@ -11,28 +11,16 @@ const terminal = new Terminal({ fontFamily: 'ui-monospace, "SF Mono", Menlo, Con
   cursorBlink: true, convertEol: true, screenReaderMode: true, scrollback: 3000, allowProposedApi: false });
 const fit = new FitAddon(); terminal.loadAddon(fit); terminal.open(element('terminal'));
 const status = text => { element('runtime-status').textContent = text; };
-let theme = 'system';
-try { theme = localStorage.getItem('aihc-shell-theme') || 'system'; } catch { /* The browser can disable local storage. */ }
-const media = matchMedia('(prefers-color-scheme: dark)');
+// /theme.js sets the page theme. Copy the active colors into the terminal.
 function setTheme() {
-  if (theme === 'system') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = theme;
-  element('theme').textContent = `Theme: ${theme}`;
   const styles = getComputedStyle(document.documentElement);
   const color = name => styles.getPropertyValue(name).trim();
   terminal.options.theme = { background: color('--surface'), foreground: color('--text'), cursor: color('--accent'),
     selectionBackground: color('--soft-accent'), black: color('--text'), brightBlack: color('--muted'),
     magenta: color('--accent'), brightMagenta: color('--strong-accent') };
-  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
-    meta.content = color('--background'); meta.removeAttribute('media');
-  }
 }
-element('theme').onclick = () => {
-  theme = ['system', 'light', 'dark'][(['system', 'light', 'dark'].indexOf(theme) + 1) % 3];
-  try { localStorage.setItem('aihc-shell-theme', theme); } catch { /* Theme changes still work without storage. */ }
-  setTheme();
-};
-media.addEventListener('change', setTheme); setTheme();
+new MutationObserver(setTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setTheme); setTheme();
 new ResizeObserver(() => fit.fit()).observe(element('terminal'));
 await document.fonts.ready; fit.fit();
 

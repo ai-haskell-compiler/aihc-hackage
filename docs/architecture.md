@@ -58,8 +58,13 @@ Import the version again to download its documents.
 
 The package API includes status and digest information for both documents.
 The `/api/readme/{name}/{version}` and `/api/changelog/{name}/{version}` APIs serve saved document bytes as plain text.
-The page also shows documents as plain text because the Hackage endpoints do not identify the original file format.
+The Hackage endpoints do not identify the original file format.
+The page shows a README as Markdown and a changelog as plain text.
+`public/markdown.js` renders the Markdown as DOM nodes and does not parse HTML.
 The page shows HTML in package documents as text.
+The content security policy lets the page load images from HTTPS addresses.
+The page loads Markdown images over HTTPS and does not send a referrer.
+The page shows the alternative text for an image with a relative address.
 
 ## Site design
 
@@ -67,6 +72,7 @@ The site uses the AIHC colors, fonts, mark, and favicon from the blog and the ma
 The page loads Inter and Newsreader from `public/shell/assets`.
 `public/theme.js` sets the theme before the page draws.
 The theme button cycles through the system, light, and dark modes, as in the manual.
+The shell page uses the same header, footer, stylesheet, and theme script as the package pages.
 The browser stores the selected mode under the `aihc-theme` key.
 
 The home page shows the package search first.
@@ -76,6 +82,8 @@ The footer link and the empty search results open this dialog.
 The package page shows the package name, version, and synopsis.
 Tabs show the description, README, API, dependencies, dependents, changelog, and Cabal fields.
 Each tab has a URL, for example `#package/text/2.1.4/readme`.
+The README tab opens first if the README is available.
+Otherwise, the description tab opens first.
 `public/haddock.js` renders the Haddock markup in package descriptions.
 A line that contains only a period starts a new paragraph.
 
