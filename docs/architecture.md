@@ -61,6 +61,24 @@ The `/api/readme/{name}/{version}` and `/api/changelog/{name}/{version}` APIs se
 The page also shows documents as plain text because the Hackage endpoints do not identify the original file format.
 The page shows HTML in package documents as text.
 
+## Site design
+
+The site uses the AIHC colors, fonts, mark, and favicon from the blog and the manual.
+The page loads Inter and Newsreader from `public/shell/assets`.
+`public/theme.js` sets the theme before the page draws.
+The theme button cycles through the system, light, and dark modes, as in the manual.
+The browser stores the selected mode under the `aihc-theme` key.
+
+The home page shows the package search first.
+The import form is in a dialog.
+The footer link and the empty search results open this dialog.
+
+The package page shows the package name, version, and synopsis.
+Tabs show the description, README, API, dependencies, dependents, changelog, and Cabal fields.
+Each tab has a URL, for example `#package/text/2.1.4/readme`.
+`public/haddock.js` renders the Haddock markup in package descriptions.
+A line that contains only a period starts a new paragraph.
+
 ## Development
 
 Use Node.js 24, Nix, Git, and Cabal.
