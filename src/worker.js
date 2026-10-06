@@ -3,6 +3,8 @@ import { contentDigest, importDocuments, documentMetadata } from './documents.js
 import { TAB_NAMES, cataloguePage, packagePage, missingPackagePage, errorPage, sitemap, robots } from './pages.js';
 
 const MAX_CABAL = 1024 * 1024;
+const MAX_PROXY = 64 * 1024 * 1024;
+const PROXY_PATH = /^\/hackage\/package\/((?=[^/]{1,128}-)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*-\d{1,9}(?:\.\d{1,9})*)\/(?:\1\.tar\.gz|[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\.cabal)$/;
 const NAME = /^(?=.{1,128}$)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
 const VERSION = /^(?=.{1,128}$)\d{1,9}(?:\.\d{1,9})*$/;
 const field = (metadata, name) => (metadata.fields[name] || []).join('\n');
@@ -226,9 +228,43 @@ async function renderPage(request, env, url) {
   return page(packagePage({ origin, pkg, reverse, tab, documents }));
 }
 
+// The browser shell cannot read Hackage directly, because Hackage does not send CORS headers.
+// This route gives the shell the source archive and the Cabal file of a package version.
+async function proxyHackage(request, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
+  if (!PROXY_PATH.test(url.pathname)) throw new HttpError(404, 'This file is not available.');
+  const response = await fetch(`https://hackage.haskell.org${url.pathname.slice('/hackage'.length)}`, {
+    method: request.method, redirect: 'manual', signal: AbortSignal.timeout(30000),
+    headers: { 'User-Agent': 'aihc-hackage/0.1 (https://hackage.aihc.app)' },
+  });
+  if (response.status === 404) throw new HttpError(404, 'Hackage does not have this file.');
+  if (!response.ok) { await response.body?.cancel(); throw new HttpError(502, 'Hackage did not return the file.'); }
+  if (Number(response.headers.get('content-length')) > MAX_PROXY) {
+    await response.body?.cancel();
+    throw new HttpError(413, 'The file exceeds the size limit.');
+  }
+  let length = 0;
+  const limit = new TransformStream({ transform(chunk, controller) {
+    length += chunk.length;
+    if (length > MAX_PROXY) controller.error(new Error('The file exceeds the size limit.')); else controller.enqueue(chunk);
+  } });
+  const headers = { 'Content-Type': url.pathname.endsWith('.cabal') ? 'text/plain; charset=utf-8' : 'application/gzip',
+    'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=3600' };
+  const size = response.headers.get('content-length');
+  if (size) headers['Content-Length'] = size;
+  return new Response(request.method === 'HEAD' ? null : response.body?.pipeThrough(limit), { headers });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/hackage/')) {
+      try { return await proxyHackage(request, url); } catch (error) {
+        if (error instanceof HttpError) return json({ error: error.message }, error.status);
+        console.error(JSON.stringify({ event: 'proxy-error', message: error.message }));
+        return json({ error: 'The request failed. Please try again.' }, 502);
+      }
+    }
     if (!url.pathname.startsWith('/api/')) {
       try {
         if (url.pathname === '/' || url.pathname === '/search' || url.pathname.startsWith('/package/')

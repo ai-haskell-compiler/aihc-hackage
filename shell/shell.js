@@ -4,6 +4,7 @@ import { parse } from './parser.js';
 import { Pipe } from './pipe.js';
 import { utilities } from './processes.js';
 import { loadToolchain } from './toolchain.js';
+import { loadHaddock, getPackage } from './haddock.js';
 import { textBytes } from './codec.js';
 
 export class Shell {
@@ -12,7 +13,7 @@ export class Shell {
     this.cwd = '/home/user'; this.lastCode = 0; this.jobs = new Map(); this.nextJob = 1;
     this.foreground = [];
     for (const name of utilities) fs.write(`/bin/${name}`, `Shell utility: ${name}\n`, false, true);
-    for (const name of ['clang', 'wasm-ld']) fs.write(`/bin/${name}`, `Packaged WASI command: ${name}\n`, false, true);
+    for (const name of ['clang', 'wasm-ld', 'aihc-haddock']) fs.write(`/bin/${name}`, `Packaged WASI command: ${name}\n`, false, true);
     this.env = { HOME: this.cwd, USER: 'user', PATH: '/bin', PWD: this.cwd, TERM: 'xterm-256color' };
   }
   interrupt() { for (const process of this.foreground) if (this.processes.running.has(process.pid)) this.processes.kill(process.pid); }
@@ -22,7 +23,7 @@ export class Shell {
     try {
       for (const job of parse(line, { ...this.env, '?': String(this.lastCode) })) {
         const name = job.commands[0].argv[0];
-        if (['cd', 'wait', 'jobs', 'ps', 'kill', 'help', 'clear'].includes(name)) {
+        if (['cd', 'wait', 'jobs', 'ps', 'kill', 'help', 'clear', 'hackage-get'].includes(name)) {
           if (job.commands.length !== 1 || job.background || job.commands[0].input || job.commands[0].output) throw new Error('Run this shell command without pipes or file operators.');
           this.lastCode = await this.control(name, job.commands[0].argv.slice(1));
         } else {
@@ -53,8 +54,17 @@ export class Shell {
     } else if (name === 'jobs') this.output([...this.jobs].map(([id, task]) => `[${id}] ${task.code === undefined ? 'Running' : `Complete (${task.code})`} ${task.label}`).join('\n') + '\n');
     else if (name === 'ps') this.output('PID  COMMAND\n' + [...this.processes.running.values()].map(p => `${p.pid}  ${p.argv.join(' ')}`).join('\n') + '\n');
     else if (name === 'kill') { if (!args.length) throw new Error('Enter a process ID.'); args.forEach(pid => this.processes.kill(pid)); }
+    else if (name === 'hackage-get') {
+      if (!args.length) throw new Error('Enter a package and a version, for example text-2.1.4.');
+      for (const identifier of args) {
+        this.status(`Downloading ${identifier}…`);
+        const count = await getPackage(identifier, this.cwd, this.fs);
+        this.output(`${identifier}: ${count} files\n`);
+      }
+      await this.save();
+    }
     else if (name === 'clear') this.output('\x1b[2J\x1b[H');
-    else this.output('Commands: ls cat cp mv rm mkdir pwd echo env which touch\nShell: cd jobs ps kill wait clear help\nOperators: | < > >> & ;   Quotes: single or double\nRun a WASI Preview 1 file: ./program.wasm [arguments]\nC example: clang hello.c -o hello.wasm; ./hello.wasm\nclang -c makes an object file. wasm-ld links object files.\nUse Upload to add source files or WASI programs.\nUse Ctrl+D to close program input. Background input is closed.\nFiles in /home/user are saved in this browser. /tmp is temporary.\nAIHC, networking, fork, and WASI components are not installed.\n');
+    else this.output('Commands: ls cat cp mv rm mkdir pwd echo env which touch\nShell: cd jobs ps kill wait clear help hackage-get\nOperators: | < > >> & ;   Quotes: single or double\nRun a WASI Preview 1 file: ./program.wasm [arguments]\nC example: clang hello.c -o hello.wasm; ./hello.wasm\nclang -c makes an object file. wasm-ld links object files.\nUse Upload to add source files or WASI programs.\nUse Ctrl+D to close program input. Background input is closed.\nFiles in /home/user are saved in this browser. /tmp is temporary.\nPackage docs: hackage-get text-2.1.4; aihc-haddock build text-2.1.4 --no-deps --json docs.json\nAIHC compilers, other WASI components, networking, and fork are not installed.\n');
     return 0;
   }
   async resolve(name, cwd) {
@@ -62,6 +72,10 @@ export class Shell {
     if (['clang', 'wasm-ld', '/bin/clang', '/bin/wasm-ld'].includes(name)) {
       if (!this.toolchain) this.toolchain = loadToolchain(this.fs, this.status).catch(error => { this.toolchain = null; throw error; });
       const modules = await this.toolchain; return { module: modules[name.endsWith('clang') ? 0 : 1], compiler: name.endsWith('clang') };
+    }
+    if (['aihc-haddock', '/bin/aihc-haddock'].includes(name)) {
+      if (!this.haddock) this.haddock = loadHaddock(this.status).catch(error => { this.haddock = null; throw error; });
+      return { haddock: await this.haddock };
     }
     const path = name.includes('/') ? normalize(name, cwd) : `/bin/${name}`;
     const bytes = this.fs.read(path);
@@ -76,8 +90,8 @@ export class Shell {
     if (!background && !prepared[0].input && (!prepared[0].builtin || prepared[0].builtin === 'cat' && prepared[0].argv.length === 1)) this.inputPipe = new Pipe();
     const processes = [];
     const env = Object.entries(this.env).map(([key, value]) => `${key}=${value}`);
-    const start = (module, argv, stdin, stdout, builtin, onOutput) => {
-      const process = this.processes.spawn(module, argv, env, cwd, stdin, stdout, onOutput, builtin);
+    const start = (module, argv, stdin, stdout, builtin, onOutput, haddock) => {
+      const process = this.processes.spawn(module, argv, env, cwd, stdin, stdout, onOutput, builtin, haddock);
       processes.push(process); return process;
     };
     try {
@@ -95,7 +109,7 @@ export class Shell {
           if (outputFile && stream === 'stdout') { outputFile.fd_seek(0n, wasi.WHENCE_END); outputFile.fd_write(bytes); }
           else this.output(bytes);
         };
-        if (!command.compiler || command.argv.includes('-cc1')) return start(command.module, command.argv, stdin, stdout, command.builtin, onOutput).done;
+        if (!command.compiler || command.argv.includes('-cc1')) return start(command.module, command.argv, stdin, stdout, command.builtin, onOutput, command.haddock).done;
         return this.compile(command, stdin, stdout, start, onOutput, cwd).catch(error => { this.output(`${error.message}\n`); return 1; })
           .finally(() => { if (stdout.pipe) new Pipe(stdout.pipe).closeWriter(); });
       });

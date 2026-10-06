@@ -1,20 +1,15 @@
-import { bytesText } from './codec.js';
+import { readTar } from './tar.js';
 
 export function unpackTar(bytes, fs) {
-  for (let offset = 0; offset + 512 <= bytes.length;) {
-    const header = bytes.subarray(offset, offset + 512);
-    const string = (start, end) => bytesText(header.subarray(start, end)).split('\0')[0];
-    const name = string(0, 100).replace(/^\.\//, '');
-    if (!name) break;
-    const size = parseInt(string(124, 136).trim(), 8) || 0;
-    if (offset + 512 + size > bytes.length || name.split('/').includes('..')) throw new Error('The system archive is invalid.');
-    const path = `/usr/${name}`.replace(/\/$/, '');
-    if (header[156] === 53) fs.mkdir(path, true, true);
-    else if (header[156] === 48 || header[156] === 0) {
+  let entries;
+  try { entries = readTar(bytes); } catch { throw new Error('The system archive is invalid.'); }
+  for (const entry of entries) {
+    const path = `/usr/${entry.path}`;
+    if (entry.kind === 'directory') fs.mkdir(path, true, true);
+    else {
       fs.mkdir(path.slice(0, path.lastIndexOf('/')), true, true);
-      fs.write(path, bytes.subarray(offset + 512, offset + 512 + size), false, true);
+      fs.write(path, entry.bytes, false, true);
     }
-    offset += 512 + Math.ceil(size / 512) * 512;
   }
 }
 export async function loadToolchain(fs, status) {

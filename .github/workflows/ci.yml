@@ -18,6 +18,12 @@ jobs:
           repository: ai-haskell-compiler/aihc
           ref: bf991343a626e758a7d6d616770824fb55aaac92
           path: .compiler
+      - uses: actions/checkout@v4
+        id: haddock-compiler
+        with:
+          repository: ai-haskell-compiler/aihc
+          ref: 7b0c849328ad36de9135bcc215c706187d6beb0c
+          path: .compiler-haddock
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -27,7 +33,7 @@ jobs:
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
           # The compiler commit also pins its flake inputs and Nix expressions.
-          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ steps.compiler.outputs.commit }}
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ steps.compiler.outputs.commit }}-${{ steps.haddock-compiler.outputs.commit }}
           restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
       - uses: actions/cache@v4
         with:
@@ -38,10 +44,13 @@ jobs:
             ~/.cache/aihc
             ~/.local/share/aihc
             .compiler/dist-newstyle
+            .compiler-haddock/dist-newstyle
             .parser-build
-          key: parser-${{ runner.os }}-bf991343-${{ hashFiles('parser/aihc.lock', 'package-lock.json') }}
+            .haddock-build
+          key: parser-${{ runner.os }}-bf991343-7b0c849-${{ hashFiles('parser/aihc.lock', 'haddock/aihc.lock', 'package-lock.json') }}
       - run: npm ci
       - run: scripts/build-parser.sh
+      - run: scripts/build-haddock.sh
       - run: npm run build
       - run: nix develop .compiler --command ormolu --mode check parser/src/Main.hs
       - run: nix develop .compiler --command hlint parser/src
@@ -53,6 +62,7 @@ jobs:
           path: |
             generated/
             parser.wasm
+            public/shell/haddock/
           retention-days: 7
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

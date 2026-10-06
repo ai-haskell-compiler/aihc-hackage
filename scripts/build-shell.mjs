@@ -23,7 +23,8 @@ for (const [name, digest] of Object.entries(files)) {
   if (createHash('sha256').update(bytes).digest('hex') !== digest) throw new Error(`The toolchain checksum is incorrect: ${name}`);
   await writeFile(destination, gzipSync(bytes, { level: 9 }));
 }
-await build({ entryPoints: ['shell/app.js', 'shell/process-worker.js'], outdir: 'public/shell/assets',
-  bundle: true, format: 'esm', target: 'es2022', minify: true, legalComments: 'eof' });
+await build({ entryPoints: ['shell/app.js', 'shell/process-worker.js', 'shell/haddock-worker.js'], outdir: 'public/shell/assets',
+  bundle: true, format: 'esm', target: 'es2022', minify: true, legalComments: 'eof',
+  logOverride: { 'duplicate-object-key': 'silent' } });
 await copyFile('node_modules/@xterm/xterm/css/xterm.css', 'public/shell/assets/xterm.css');
 console.log('Built the browser shell and C toolchain.');

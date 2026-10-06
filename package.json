@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/transpile.mjs && npm run build:shell",
+    "build": "node scripts/transpile.mjs && node scripts/transpile-haddock.mjs && npm run build:shell",
     "build:shell": "node scripts/build-shell.mjs",
     "dev": "wrangler dev",
     "test": "node --experimental-wasm-jspi --test test/*.test.mjs",

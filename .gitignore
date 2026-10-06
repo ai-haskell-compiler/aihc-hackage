@@ -18,3 +18,12 @@ public/shell/assets/app.js
 public/shell/assets/process-worker.js
 public/shell/assets/xterm.css
 public/shell/toolchain/
+haddock.wasm
+.haddock-build
+.haddock-output
+.haddock-workspace
+public/shell/haddock/
+public/shell/assets/haddock-worker.js
+.compiler-haddock/
+.wrangler-dev.log
+.haddock-build.log
