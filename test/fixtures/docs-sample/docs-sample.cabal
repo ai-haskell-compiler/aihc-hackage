@@ -1,0 +1,11 @@
+cabal-version: 2.4
+name: docs-sample
+version: 0.1.0.0
+synopsis: A small package for the aihc-haddock tests
+build-type: Simple
+
+library
+  exposed-modules: Docs.Sample
+  hs-source-dirs: src
+  build-depends: base
+  default-language: Haskell2010

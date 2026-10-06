@@ -108,14 +108,15 @@ Use Node.js 24, Nix, Git, and Cabal.
 
 1. Run `npm ci`.
 2. Run `scripts/build-parser.sh`.
-3. Run `npm run build`.
-4. Run `just check`.
-5. Run `npx wrangler d1 migrations apply DB --local`.
-6. Run `npm run dev`.
+3. Run `scripts/build-haddock.sh`.
+4. Run `npm run build`.
+5. Run `just check`.
+6. Run `npx wrangler d1 migrations apply DB --local`.
+7. Run `npm run dev`.
 
-Set `AIHC_ROOT` to use an existing compiler checkout at the required revision.
-The build script otherwise creates a checkout in `.compiler`.
-The lock file fixes parser dependency versions and Cabal revisions.
+Set `AIHC_ROOT` or `AIHC_HADDOCK_ROOT` to use an existing compiler checkout at the required revision.
+The build scripts otherwise create checkouts in `.compiler` and `.compiler-haddock`.
+The lock files `parser/aihc.lock` and `haddock/aihc.lock` fix dependency versions and Cabal revisions.
 The tests use Cabal fixtures through the real Wasm parser.
 Worker tests use local D1 and R2 and a fixture source for Hackage requests.
 
@@ -179,10 +180,51 @@ The `clang` command supports one C source file, object output, optimization leve
 The shell starts Clang and LLD as separate processes for compilation and linking.
 Use `clang -cc1` or `wasm-ld` for direct tool access.
 
-The current runtime does not include AIHC, WASI components, networking, threads, `fork`, or full terminal job control.
+The runtime does not include the AIHC compiler, networking, threads, `fork`, or full terminal job control.
 Symbolic links and advanced WASI polling are not supported.
 Programs that need these interfaces can fail.
 The tests compile C, execute the output in Workers, and check pipes, background jobs, and file storage snapshots.
+
+### aihc-haddock
+
+The `aihc-haddock` command is a WASI P3 component, not a Preview 1 module.
+`scripts/build-haddock.sh` compiles it with `--target wasm32-wasip3` and writes `haddock.wasm`.
+The script uses its own compiler checkout in `.compiler-haddock` and the lock file `haddock/aihc.lock`.
+It builds with `aihc-haddock -hackage`, so the component does not download the Hackage index.
+The index is about 140 MB, which is too large for a browser.
+Build on a case-sensitive filesystem.
+The default macOS filesystem is not case-sensitive, and the compiler build fails there.
+
+`scripts/transpile-haddock.mjs` uses `jco-transpile` to make JavaScript and core Wasm modules.
+It writes gzip files to `public/shell/haddock`.
+It also writes `core-libs.tar.gz`, which holds the AIHC core library sources.
+The package planner needs these sources.
+The component cannot read environment variables, so the shell mounts the sources at `/core-libs`.
+
+The shell compiles the core modules once for each page and sends them to a new Web Worker for each command.
+`shell/haddock-worker.js` runs the component with the host in `shell/haddock-host.js`.
+The host supplies the `wasi:cli`, `wasi:clocks`, and `wasi:filesystem` interfaces.
+It does not supply a network.
+The browser must support WebAssembly JSPI, which the generated component uses.
+
+The Worker copies the files under the shell directory into an in-memory filesystem.
+This directory becomes the root of that filesystem, because the component resolves relative paths against the root.
+The command cannot read files outside this directory.
+When the command ends, the shell copies the new and changed files back to the shell filesystem.
+The command writes standard output to a pipe or to the terminal.
+The command does not read standard input.
+
+The `hackage-get NAME-VERSION` shell command downloads a package source archive and unpacks it in the current directory.
+It uses the Worker route `/hackage/package/NAME-VERSION/NAME-VERSION.tar.gz`.
+Hackage does not send CORS headers, so the browser cannot request it directly.
+The route accepts GET and HEAD requests for source archives and Cabal files only.
+It rejects redirects and files above 64 MiB.
+It does not serve the Hackage index.
+
+Without the Hackage index, the command cannot find dependencies.
+Each dependency that is not an AIHC core library must be in a subdirectory of the current directory.
+Use `hackage-get` for each dependency, then use `aihc-haddock build NAME-VERSION --no-deps`.
+The tests run the component through the shell in Node.js 24.
 
 ## Fixture source
 

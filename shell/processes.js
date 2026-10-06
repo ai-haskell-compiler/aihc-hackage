@@ -6,8 +6,9 @@ import { textBytes } from './codec.js';
 export const utilities = ['ls', 'cat', 'cp', 'mv', 'rm', 'mkdir', 'pwd', 'echo', 'env', 'which', 'touch'];
 
 export class Processes {
-  constructor(fs, output, workerFactory = () => new Worker('/shell/assets/process-worker.js', { type: 'module' })) {
-    this.fs = fs; this.output = output; this.workerFactory = workerFactory;
+  constructor(fs, output, workerFactory = () => new Worker('/shell/assets/process-worker.js', { type: 'module' }),
+    haddockFactory = () => new Worker('/shell/assets/haddock-worker.js', { type: 'module' })) {
+    this.fs = fs; this.output = output; this.workerFactory = workerFactory; this.haddockFactory = haddockFactory;
     this.nextPid = 1; this.running = new Map();
   }
   syscall(process, { fd: id, method, args }) {
@@ -80,9 +81,9 @@ export class Processes {
       return { bytes: textBytes(output) };
     } catch (error) { return { error: error.message }; }
   }
-  spawn(module, argv, env, cwd, stdin, stdout, onOutput = this.output, builtin) {
+  spawn(module, argv, env, cwd, stdin, stdout, onOutput = this.output, builtin, haddock) {
     const pid = this.nextPid++;
-    const worker = this.workerFactory();
+    const worker = haddock ? this.haddockFactory() : this.workerFactory();
     const rpc = new SharedArrayBuffer(1024 * 1024);
     const process = { pid, argv, env, worker, rpc, fds: new Map([
       [3, { fd: new PreopenDirectory('.', this.fs.node(cwd).contents), path: cwd }],
@@ -100,13 +101,22 @@ export class Processes {
       worker.onmessage = ({ data }) => {
         if (data.type === 'syscall') reply(rpc, this.syscall(process, data));
         else if (data.type === 'output') onOutput(data.bytes, data.stream);
-        else if (data.type === 'exit') process.finish(data.code, data.error);
+        else if (data.type === 'exit') {
+          // The aihc-haddock process works on a copy of the files, so the shell copies its results back.
+          for (const [path, bytes] of data.files || []) {
+            try { this.fs.mkdir(path.slice(0, path.lastIndexOf('/')), true); this.fs.write(path, bytes); } catch { /* The path is not writable. */ }
+          }
+          process.finish(data.code, data.error);
+        }
       };
       worker.onerror = event => process.finish(1, event.message);
     });
     this.running.set(pid, process);
     process.stdin = stdin; process.stdout = stdout;
-    worker.postMessage({ module, builtin, argv, env, cwd, stdin, stdout, rpc });
+    if (haddock) {
+      const files = this.fs.snapshot().filter(entry => !entry.directory).map(entry => [entry.path, entry.data]);
+      worker.postMessage({ module: haddock.modules, coreLibs: haddock.coreLibs, argv, env, cwd, stdin, stdout, files });
+    } else worker.postMessage({ module, builtin, argv, env, cwd, stdin, stdout, rpc });
     return process;
   }
   kill(pid) {

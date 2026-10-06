@@ -8,4 +8,5 @@ check:
 
 build:
     scripts/build-parser.sh
+    scripts/build-haddock.sh
     npm run build

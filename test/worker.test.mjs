@@ -7,6 +7,7 @@ const invalid = await readFile(new URL('fixtures/invalid.cabal', import.meta.url
 let revision = source;
 let outboundCount = 0;
 const outboundUrls = [];
+const archive = new Uint8Array([0x1f, 0x8b, 8, 0, 1, 2, 3, 4]);
 const readme = '# Sample\n\nA README with λ and <script>alert("unsafe")</script>.\n';
 const changelog = '# Changes\n\n* Add a sample module.\n';
 const documentRequests = [];
@@ -19,7 +20,7 @@ const mf = new Miniflare(convertV4MiniflareOptions({
     ...(await readdir('dist')).filter(name => name.endsWith('.wasm')).map(name => ({ type: 'CompiledWasm', path: `dist/${name}` }))],
   compatibilityDate: '2026-10-03', compatibilityFlags: ['nodejs_compat'],
   d1Databases: ['DB'], r2Buckets: ['CABAL'], ratelimits: { IMPORT_LIMIT: { namespace_id: '1001', simple: { limit: 10, period: 60 } } },
-  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/', '/search', '/package/*', '/api/*', '/sitemap.xml', '/robots.txt'], routerConfig: { has_user_worker: true } },
+  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/', '/search', '/package/*', '/api/*', '/hackage/*', '/sitemap.xml', '/robots.txt'], routerConfig: { has_user_worker: true } },
   outboundService: async request => {
     outboundCount++;
     outboundUrls.push(request.url);
@@ -30,6 +31,9 @@ const mf = new Miniflare(convertV4MiniflareOptions({
       return documentResponses.get(path)?.() || new Response('Missing', { status: 404 });
     }
     if (path === '/package/sample-1.2.0/sample.cabal') return new Response(revision);
+    if (path === '/package/sample-1.2.0/sample-1.2.0.tar.gz') return new Response(archive, { headers: { 'Content-Type': 'application/x-gzip' } });
+    if (path === '/package/large-1.0/large-1.0.tar.gz') return new Response('x', { headers: { 'Content-Length': String(65 * 1024 * 1024) } });
+    if (path === '/package/moved-1.0/moved-1.0.tar.gz') return new Response('', { status: 302, headers: { Location: 'https://other.test' } });
     if (path === '/package/sample-1.10.0/sample.cabal') return new Response(source.replace('version: 1.2.0', 'version: 1.10.0'));
     if (path === '/package/broken-1.0/broken.cabal') return new Response(invalid);
     if (path === '/package/huge-1.0/huge.cabal') return new Response('a'.repeat(1048577));
@@ -52,6 +56,32 @@ async function request(path, body, extraHeaders = {}) {
   });
   return { status: response.status, data: await response.json() };
 }
+test('The Worker proxies only package archives and Cabal files from Hackage.', async () => {
+  outboundUrls.length = 0;
+  const archiveResponse = await mf.dispatchFetch('http://localhost/hackage/package/sample-1.2.0/sample-1.2.0.tar.gz');
+  assert.equal(archiveResponse.status, 200);
+  assert.equal(archiveResponse.headers.get('content-type'), 'application/gzip');
+  assert.equal(archiveResponse.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual([...new Uint8Array(await archiveResponse.arrayBuffer())], [...archive]);
+  const cabalResponse = await mf.dispatchFetch('http://localhost/hackage/package/sample-1.2.0/sample.cabal');
+  assert.equal(cabalResponse.status, 200);
+  assert.match(cabalResponse.headers.get('content-type'), /^text\/plain/);
+  assert.deepEqual(outboundUrls, ['https://hackage.haskell.org/package/sample-1.2.0/sample-1.2.0.tar.gz', 'https://hackage.haskell.org/package/sample-1.2.0/sample.cabal']);
+  // Other paths do not reach Hackage.
+  outboundUrls.length = 0;
+  for (const path of ['/hackage/01-index.tar.gz', '/hackage/package/sample-1.2.0/other.tar.gz', '/hackage/package/sample-1.2.0/../x.cabal',
+    '/hackage/package/sample/sample.tar.gz', '/hackage/users/', '/hackage/package/sample-1.2.0/sample-1.2.0.tar.gz/extra']) {
+    assert.equal((await mf.dispatchFetch(`http://localhost${path}`)).status, 404, path);
+  }
+  assert.equal((await mf.dispatchFetch('http://localhost/hackage/package/sample-1.2.0/sample-1.2.0.tar.gz', { method: 'POST', body: 'x' })).status, 405);
+  assert.deepEqual(outboundUrls, []);
+  assert.equal((await mf.dispatchFetch('http://localhost/hackage/package/missing-1.0/missing-1.0.tar.gz')).status, 404);
+  assert.equal((await mf.dispatchFetch('http://localhost/hackage/package/large-1.0/large-1.0.tar.gz')).status, 413);
+  assert.equal((await mf.dispatchFetch('http://localhost/hackage/package/moved-1.0/moved-1.0.tar.gz')).status, 502);
+  // The import tests count outbound requests.
+  outboundCount = 0; outboundUrls.length = 0;
+});
+
 test('The Worker imports Cabal source into R2 and D1.', async () => {
   try {
     assert.equal((await request('/api/packages')).data.packages.length, 0);
