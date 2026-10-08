@@ -13,21 +13,23 @@
   dependencies = builtins.filter (package: package.source == "hackage") lock.platforms.wasi-wasm32;
   manifest = pkgs.writeText "${name}-sources.json" (builtins.toJSON {
     inherit (lock) index-state;
-    packages = map (package: let
-      id = "${package.name}-${package.version}";
-      hash = hashes."${id}-r${toString package.revision}";
-      base = "https://hackage.haskell.org/package/${id}";
-    in {
-      inherit (package) name version revision;
-      tarball = pkgs.fetchurl {
-        url = "${base}/${id}.tar.gz";
-        hash = hash.tarball;
-      };
-      cabal = pkgs.fetchurl {
-        url = "${base}/revision/${toString package.revision}.cabal";
-        hash = hash.cabal;
-      };
-    }) dependencies;
+    packages =
+      map (package: let
+        id = "${package.name}-${package.version}";
+        hash = hashes."${id}-r${toString package.revision}";
+        base = "https://hackage.haskell.org/package/${id}";
+      in {
+        inherit (package) name version revision;
+        tarball = pkgs.fetchurl {
+          url = "${base}/${id}.tar.gz";
+          hash = hash.tarball;
+        };
+        cabal = pkgs.fetchurl {
+          url = "${base}/revision/${toString package.revision}.cabal";
+          hash = hash.cabal;
+        };
+      })
+      dependencies;
   });
   cache = pkgs.runCommand "${name}-sources" {nativeBuildInputs = [pkgs.python3];} ''
     python ${./hackage-cache.py} ${manifest} "$out"

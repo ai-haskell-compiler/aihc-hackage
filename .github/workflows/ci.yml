@@ -21,12 +21,16 @@ jobs:
           extra_nix_config: |
             sandbox = true
             max-jobs = 1
+      - name: Verify Linux source hashes
+        run: |
+          nix flake update parserCompiler haddockCompiler
+          cat flake.lock
       - name: Restore component binary cache
         id: components
         uses: actions/cache/restore@v4
         with:
           path: .component-cache
-          key: components-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**', 'parser/**', 'haddock/aihc.lock', 'package.json', 'package-lock.json', 'scripts/transpile.mjs', 'scripts/transpile-haddock.mjs') }}
+          key: components-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**', 'parser/**', 'haddock/aihc.lock', 'package.json', 'package-lock.json', 'scripts/transpile.mjs', 'scripts/transpile-haddock.mjs', 'shell/toolchain.json') }}
           restore-keys: components-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Import cached Nix outputs
         if: steps.components.outputs.cache-matched-key != ''
@@ -44,17 +48,24 @@ jobs:
         run: |
           scripts/build-components.sh
           rm -rf .component-cache
-          nix copy --to "file://$PWD/.component-cache" .#parser .#haddock .#parser-assets .#haddock-assets .#components
+          nix copy --to "file://$PWD/.component-cache" .#parser .#haddock .#parser-assets .#haddock-assets .#toolchain .#components
           readlink -f result-components > .component-cache/store-path
       - name: Use cached components
         if: steps.components.outputs.cache-hit == 'true'
-        run: cp -R "$(cat .component-cache/store-path)/." .
+        run: |
+          cp -R --no-preserve=mode "$(cat .component-cache/store-path)/." .
       - name: Save component binary cache
         if: steps.components.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .component-cache
           key: ${{ steps.components.outputs.cache-primary-key }}
+      - name: Check Nix inputs and cache import
+        if: steps.components.outputs.cache-hit != 'true'
+        run: |
+          python3 scripts/check-nix-inputs.py
+          nix copy --all --no-check-sigs --from "file://$PWD/.component-cache" --to "local?root=$RUNNER_TEMP/component-store"
+          test -s "$RUNNER_TEMP/component-store$(cat .component-cache/store-path)/parser.wasm"
       - run: npm ci
       - run: python3 -m unittest discover -s test -p '*_test.py'
       - run: nix develop --command ormolu --mode check parser/src/Main.hs

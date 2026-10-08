@@ -47,7 +47,7 @@
           buildPhase = ''
             runHook preBuild
             cp ${component}/*.wasm ${name}.wasm
-            export AIHC_HADDOCK_ROOT=${haddockCompiler}
+            ${pkgs.lib.optionalString (name == "haddock") ''export AIHC_HADDOCK_ROOT=${haddockCompiler}''}
             node scripts/${baseNameOf script}
             runHook postBuild
           '';
@@ -61,13 +61,15 @@
         };
       parserAssets = transpile "parser" parser ./scripts/transpile.mjs;
       haddockAssets = transpile "haddock" haddock ./scripts/transpile-haddock.mjs;
+      toolchain = import ./nix/toolchain.nix {inherit pkgs;};
       components = pkgs.runCommand "aihc-hackage-components" {allowedReferences = [];} ''
         mkdir -p "$out"
-        cp -R ${parserAssets}/. "$out/"
-        cp -R ${haddockAssets}/. "$out/"
+        cp -R --no-preserve=mode ${parserAssets}/. "$out/"
+        cp -R --no-preserve=mode ${haddockAssets}/. "$out/"
+        cp -R --no-preserve=mode ${toolchain}/. "$out/"
       '';
     in {
-      inherit parser haddock components;
+      inherit parser haddock components toolchain;
       parser-assets = parserAssets;
       haddock-assets = haddockAssets;
       default = components;

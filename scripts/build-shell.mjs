@@ -3,12 +3,7 @@ import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
 
-const revision = '648c4a89997a351eef75cdaec3ef5b89d4937dec';
-const files = {
-  clang: '2a466f0e990329d3230b869d04fc20803eae96a7feb3a3f6c93e25a77b8aed1d',
-  lld: '36419ed202011765222098d7701218378b67f634d50f0a4625059ae2c9860f48',
-  'sysroot.tar': '2435a7b549af30c2be7ec249c405bc2e911ab0c6003012f0909ec3c131bff867',
-};
+const { revision, files } = JSON.parse(await readFile(new URL('../shell/toolchain.json', import.meta.url), 'utf8'));
 await mkdir('public/shell/toolchain', { recursive: true });
 await mkdir('public/shell/assets', { recursive: true });
 for (const [name, digest] of Object.entries(files)) {
