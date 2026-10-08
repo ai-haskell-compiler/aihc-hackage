@@ -13,6 +13,8 @@ if [[ "$(git -C "$compiler_root" rev-parse HEAD)" != "$compiler_revision" ]]; th
   echo 'The AIHC source does not match the required revision.' >&2
   exit 1
 fi
+cd "$project_root"
+AIHC_HADDOCK_ROOT="$compiler_root" node scripts/prepare-haddock-web.mjs
 # The compiler finds local packages in a workspace directory with one subdirectory for each package.
 workspace="$project_root/.haddock-workspace"
 rm -rf "$workspace"
@@ -26,5 +28,5 @@ cd "$compiler_root"
 nix develop --quiet --command cabal update
 nix develop --quiet --command nix run .#aihc -- build bin/aihc-haddock \
   -O2 --target wasm32-wasip3 --constraint "aihc-haddock -hackage" --workspace "$workspace" \
-  --build-root "$project_root/.haddock-build" --output "$project_root/.haddock-output"
+  --build-root "${AIHC_HADDOCK_BUILD_ROOT:-$project_root/.haddock-build}" --output "$project_root/.haddock-output"
 cp "$project_root/.haddock-output/aihc-haddock.wasm" "$project_root/haddock.wasm"

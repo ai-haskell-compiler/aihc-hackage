@@ -109,10 +109,13 @@ Use Node.js 24, Nix, Git, and Cabal.
 1. Run `npm ci`.
 2. Run `scripts/build-parser.sh`.
 3. Run `scripts/build-haddock.sh`.
-4. Run `npm run build`.
-5. Run `just check`.
-6. Run `npx wrangler d1 migrations apply DB --local`.
-7. Run `npm run dev`.
+4. Run `scripts/build-planner.sh`.
+5. Run `npm run build`.
+6. Run `just check`.
+7. Run `npx wrangler d1 migrations apply DB --local`.
+8. Run `npm run dev`.
+
+The development command starts the site Worker and the documentation Workflow Worker.
 
 Set `AIHC_ROOT` or `AIHC_HADDOCK_ROOT` to use an existing compiler checkout at the required revision.
 The build scripts otherwise create checkouts in `.compiler` and `.compiler-haddock`.
@@ -125,7 +128,7 @@ Worker tests use local D1 and R2 and a fixture source for Hackage requests.
 The `main` branch requires a PR and the `check` status.
 The rule applies to administrators.
 Each push to `main` runs checks and deploys the checked build.
-The deployment applies D1 migrations before it deploys the Worker and static assets.
+The deployment applies D1 migrations before it deploys both Workers and static assets.
 The workflow uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 The account ID is not confidential and can also come from the Worker configuration.
 
@@ -231,3 +234,138 @@ The tests run the component through the shell in Node.js 24.
 `test/fixtures/text-2.1.4.cabal` contains the published Cabal file from Hackage.
 Its BSD license is in `test/fixtures/text-LICENSE`.
 The fixture retains the original CRLF line breaks.
+
+## Documentation builder
+
+`haddock.aihc.app` opens the documentation builder.
+The same builder is at `/build` on `hackage.aihc.app`.
+The API tab of a package links to the builder and the preferred saved result.
+A verified result takes precedence over a community result.
+Reading documentation does not require JavaScript or browser generation support.
+
+The builder runs a separate Web Worker with an in-memory filesystem.
+It has no shell interface and cannot read the shell filesystem.
+The browser must support WebAssembly JSPI and gzip decompression.
+The page checks these features before a build.
+Cancellation terminates the build Worker.
+A build stops after ten minutes.
+
+The generator uses an explicit dependency plan.
+The plan fixes the package versions, Cabal revisions, flags, source hashes, generator version, and target.
+The initial target is Linux on x86-64, with the LP64 headers from `aihc-haddock`.
+LP64 means that pointers and C `long` values use 64 bits.
+The browser platform does not change the documented target.
+
+`haddock/web/Aihc/Haddock/Web.hs` adds the `web-build PLAN JSON HOOGLE` command to the pinned generator.
+`scripts/prepare-haddock-web.mjs` installs this adapter in the compiler checkout before a build.
+The adapter selects source files with the flags and target from the plan.
+It does not run the dependency solver.
+The original shell commands remain available.
+
+The browser checks the plan hash and each downloaded file hash.
+It replaces the Cabal file in each source archive with the selected revision.
+It rejects unsafe archive paths, links, duplicate files, and invalid headers.
+One compressed source archive can contain at most 16 MiB.
+The plan can contain at most 256 packages and 96 MiB of compressed source.
+The extracted sources can contain at most 128 MiB in total.
+
+IndexedDB stores downloaded files by their hash and completed results by package version.
+Storage failures do not stop a build.
+The page tells the visitor when the completed result cannot be saved.
+Visitors can download JSON and Hoogle text before they upload the result.
+A failed upload can use the saved result without another build.
+
+### Planning in Cloudflare
+
+The `aihc-documentation` Worker runs the planner as Wasm inside Cloudflare Workflows.
+The Haskell source uses the same `aihc-package-plan` solver as the compiler.
+The deployed system does not use a native executable, a process supervisor, or a separate server.
+
+The site starts work through the `DOC_WORKFLOW` binding.
+D1 stores the public job status and the Workflow instance identifier.
+Cloudflare persists successful steps and retries failed steps.
+Repeated requests use the same instance.
+A replaced job rejects the result of an older instance.
+
+The Wasm solver returns a request for each missing package version list or Cabal file.
+The Workflow fetches that input from Hackage over HTTPS.
+It caches metadata for one hour and stores immutable copies in R2.
+It can resolve dependencies that are absent from the website catalogue.
+Neither the browser nor the Worker downloads the complete Hackage index.
+
+Each job fixes its input files before another solver call.
+Successful steps retain their input hashes across retries.
+The plan records the input snapshot hash and resolution time.
+This is a snapshot of fetched metadata, not a global Hackage index state.
+Downloads use HTTPS and content hashes. They do not use Cabal's signed repository verification.
+
+The imported root Cabal file fixes the root revision.
+The solver uses version ranges, automatic flags, Linux conditions, and the pinned AIHC core libraries.
+It returns an error when a plan exceeds the input, package, or backtracking limits.
+The search dependency table is not used for resolution.
+
+The Workflow stores source archives and selected Cabal files in R2 before it publishes a plan.
+Ready plans are reused for one day. Failed plans can be retried after five minutes.
+Source archives use immutable hash addresses and a shared cache.
+
+### Uploads and publication
+
+`POST /api/docs/uploads` creates an upload ticket for one plan and one documentation hash.
+The ticket expires after thirty minutes.
+`PUT /api/docs/uploads/{id}` requires the ticket token.
+The API limits uploads to 8 MiB and checks the model structure, identity, and dependency list.
+A repeated upload returns the same result address.
+R2 stores the model before a D1 transaction publishes its result record.
+
+Each public upload has `community` provenance, which identifies its source.
+A schema check or checksum does not prove that a visitor ran the generator.
+The documentation page shows the provenance and generation diagnostics.
+Community pages have a `noindex` directive.
+The renderer escapes text, restricts links, and respects explicit export lists.
+It does not execute uploaded HTML or scripts.
+Some inferred types, re-exported declarations, cross-package links, and table content are not available in the current generator.
+
+A second Workflow instance rebuilds each uploaded result with the same Wasm component.
+It marks the result as `verified` only when the complete output hash matches.
+Public HTTP routes cannot change this status.
+A failed or different rebuild leaves the result as a community contribution.
+Verification confirms reproducible output from this generator, not complete Haddock compatibility.
+
+### Cloudflare deployment
+
+The runtime consists of two Cloudflare Workers and the visitor's browser.
+`wrangler.jsonc` configures the public site Worker.
+`wrangler.docs.jsonc` configures the documentation Workflow Worker.
+The Workers share D1 and R2 through Cloudflare bindings.
+The Workflow Worker has no public domain or workers.dev endpoint.
+The separate bundles keep the Wasm planner and verifier outside the site bundle.
+The Workflow bundle requires the Workers Paid plan.
+
+`npm run deploy` applies the D1 migrations, deploys the Workflow Worker, and deploys the site Worker.
+No `DOC_RUNNER_TOKEN` or planner service environment is required.
+Cloudflare account credentials remain necessary for deployment through Wrangler or CI.
+Visitors receive only the limited upload ticket tokens.
+
+The build uses Node.js 24, Nix, and the pinned compiler checkout.
+These are development tools. They are not runtime services.
+`scripts/build-planner.sh` compiles the solver to Wasm.
+`scripts/transpile-planner.mjs` produces the JavaScript bindings and static Wasm imports.
+The build also copies the core Cabal files from the pinned compiler checkout.
+
+The transpiler emits small suspension adapters as inline Wasm byte arrays.
+`scripts/externalize-wasm.mjs` extracts those arrays into modules for both the planner and Haddock.
+Cloudflare compiles every module at deployment. The Workflow does not compile downloaded code.
+
+### Documentation checks
+
+`npm run check` builds both Worker bundles and runs the application and Wasm planner tests.
+The integration test runs both Workers and the real Workflows engine with local D1 and R2.
+It resolves an unlisted dependency, stores sources, generates documentation, uploads it, and verifies the rebuild.
+The test uses no runner secret.
+The browser component test also checks a selected flag, a revised Cabal file, and the Linux target.
+
+`npm run check:planner` runs the Wasm solver test and checks Haskell source with Ormolu and HLint.
+No native planner process participates in these tests.
+
+On macOS, use a case-sensitive filesystem for the Wasm build cache and output intermediates.
+Set `XDG_CACHE_HOME`, `AIHC_HADDOCK_BUILD_ROOT`, and `AIHC_PLANNER_BUILD_ROOT` to directories on that filesystem.

@@ -47,14 +47,18 @@ jobs:
             .compiler-haddock/dist-newstyle
             .parser-build
             .haddock-build
-          key: parser-${{ runner.os }}-bf991343-7b0c849-${{ hashFiles('parser/aihc.lock', 'haddock/aihc.lock', 'package-lock.json') }}
+            .planner-build
+          key: parser-${{ runner.os }}-bf991343-7b0c849-${{ hashFiles('parser/aihc.lock', 'haddock/aihc.lock', 'planner/aihc.lock', 'package-lock.json') }}
       - run: npm ci
       - run: scripts/build-parser.sh
       - run: scripts/build-haddock.sh
+      - run: scripts/build-planner.sh
       - run: npm run build
+      - run: npm run check:planner
       - run: nix develop .compiler --command ormolu --mode check parser/src/Main.hs
       - run: nix develop .compiler --command hlint parser/src
       - run: npx wrangler types
+      - run: npx wrangler types --config wrangler.docs.jsonc
       - run: npm run check
       - uses: actions/upload-artifact@v4
         with:
