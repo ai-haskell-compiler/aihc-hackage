@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/transpile.mjs && node scripts/transpile-haddock.mjs && npm run build:shell",
+    "build": "node scripts/transpile.mjs && node scripts/transpile-haddock.mjs && node scripts/transpile-planner.mjs && npm run build:shell",
     "build:shell": "node scripts/build-shell.mjs",
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --config wrangler.jsonc --config wrangler.docs.jsonc",
     "test": "node --experimental-wasm-jspi --test test/*.test.mjs",
-    "check": "npm run build:shell && wrangler deploy --dry-run --outdir dist && npm test",
-    "deploy": "npm run build:shell && wrangler d1 migrations apply DB --remote && wrangler deploy"
+    "check": "npm run build:shell && wrangler deploy --dry-run --outdir dist && wrangler deploy --config wrangler.docs.jsonc --dry-run --outdir dist-docs && npm test && node --experimental-wasm-jspi --test planner/test.mjs",
+    "deploy": "npm run build:shell && wrangler d1 migrations apply DB --remote && wrangler deploy --config wrangler.docs.jsonc && wrangler deploy",
+    "build:planner": "scripts/build-planner.sh && node scripts/transpile-planner.mjs",
+    "check:planner": "scripts/check-planner.sh"
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "0.4.2",

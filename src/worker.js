@@ -1,3 +1,6 @@
+import { documentationApi, getResult, latestResult } from './documentation-api.js';
+import { builderPage, documentationPage } from './documentation-pages.js';
+import { HttpError, json, limitedBytes } from './http.js';
 import { parseCabal } from './parser.js';
 import { contentDigest, importDocuments, documentMetadata } from './documents.js';
 import { TAB_NAMES, cataloguePage, packagePage, missingPackagePage, errorPage, sitemap, robots } from './pages.js';
@@ -10,35 +13,6 @@ const VERSION = /^(?=.{1,128}$)\d{1,9}(?:\.\d{1,9})*$/;
 const field = (metadata, name) => (metadata.fields[name] || []).join('\n');
 const summaryColumns = 'name, version, synopsis, license, imported_at';
 
-class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
-}
-function json(value, status = 200) {
-  return Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
-}
-async function limitedBytes(response, limit) {
-  if (Number(response.headers.get('content-length')) > limit) {
-    await response.body?.cancel();
-    throw new HttpError(413, 'The file exceeds the size limit.');
-  }
-  if (!response.body) return new Uint8Array();
-  const reader = response.body.getReader();
-  const chunks = [];
-  let length = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      length += value.length;
-      if (length > limit) { await reader.cancel(); throw new HttpError(413, 'The file exceeds the size limit.'); }
-      chunks.push(value);
-    }
-  } finally { reader.releaseLock(); }
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
-  return bytes;
-}
 function validateName(name) {
   if (!NAME.test(name) || !name.split('-').every(part => /[A-Za-z]/.test(part))) {
     throw new HttpError(400, 'Enter a valid Hackage package name.');
@@ -152,7 +126,7 @@ async function loadPackage(name, version, env) {
   const object = await env.CABAL.get(row.metadata_key);
   if (!object) throw new HttpError(503, 'The package metadata is not available.');
   const metadata = await object.json();
-  return { ...metadata, documents: await documentMetadata(name, selected, env), versions: versions.results };
+  return { ...metadata, documents: await documentMetadata(name, selected, env), documentation: await latestResult(env, name, selected), versions: versions.results };
 }
 async function loadReverse(name, env) {
   validateName(name);
@@ -198,6 +172,18 @@ function decode(part) {
 async function renderPage(request, env, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
   const origin = url.origin;
+  if (url.pathname === '/build' || (url.pathname === '/' && url.hostname === 'haddock.aihc.app')) {
+    const response = page(builderPage({ name: url.searchParams.get('name') || '', version: url.searchParams.get('version') || '' }));
+    response.headers.set('Content-Security-Policy', PAGE_HEADERS['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'"));
+    return response;
+  }
+  const docs = /^\/docs\/([a-f0-9]{64})(?:\/([^/]+))?$/.exec(url.pathname);
+  if (docs) {
+    const result = await getResult(env, docs[1]);
+    const content = documentationPage(result, docs[2] && decode(docs[2]));
+    if (!content) throw new HttpError(404, 'This module is not available.');
+    return page(content);
+  }
   if (url.pathname === '/sitemap.xml') {
     const releases = await env.DB.prepare('SELECT name, version, imported_at FROM releases ORDER BY name, version_sort').all();
     return new Response(sitemap(origin, releases.results), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
@@ -267,7 +253,7 @@ export default {
     }
     if (!url.pathname.startsWith('/api/')) {
       try {
-        if (url.pathname === '/' || url.pathname === '/search' || url.pathname.startsWith('/package/')
+        if (url.pathname === '/' || url.pathname === '/search' || url.pathname === '/build' || url.pathname.startsWith('/docs/') || url.pathname.startsWith('/package/')
           || url.pathname === '/sitemap.xml' || url.pathname === '/robots.txt') return await renderPage(request, env, url);
         return await env.ASSETS.fetch(request);
       } catch (error) {
@@ -277,6 +263,7 @@ export default {
       }
     }
     try {
+      if (url.pathname.startsWith('/api/docs/')) return await documentationApi(request, env, url);
       if (request.method === 'POST' && url.pathname === '/api/import') return await importPackage(request, env);
       if (request.method !== 'GET') throw new HttpError(405, 'This method is not available.');
       if (url.pathname === '/api/packages') {

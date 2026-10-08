@@ -5,7 +5,7 @@ const importStatus = document.querySelector('#import-status');
 const queryInput = document.querySelector('#query');
 const encode = encodeURIComponent;
 const packageHref = (name, version) => `/package/${encode(name)}/${encode(version)}`;
-const searchHref = query => query ? `/search?q=${encode(query)}` : '/';
+const searchHref = query => query ? `/search?q=${encode(query)}` : '/search';
 
 function message(text, error = false) { status.textContent = text; status.className = error ? 'error' : ''; }
 async function importPackage(name, version) {

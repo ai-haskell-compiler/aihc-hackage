@@ -27,3 +27,14 @@ public/shell/assets/haddock-worker.js
 .compiler-haddock/
 .wrangler-dev.log
 .haddock-build.log
+
+.planner-state/
+public/builder/
+.planner-build.log
+
+planner.wasm
+.planner-build/
+.planner-output/
+.planner-workspace/
+.planner-wasm-build.log
+dist-docs/

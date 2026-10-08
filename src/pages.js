@@ -17,7 +17,7 @@ export const searchHref = (query, offset = 0) => {
   if (query) params.set('q', query);
   if (offset) params.set('offset', String(offset));
   const text = params.toString();
-  return query ? `/search?${text}` : `/${text ? `?${text}` : ''}`;
+  return `/search${text ? `?${text}` : ''}`;
 };
 // Show the README first if it is available. Otherwise show the description.
 export const defaultTab = pkg => pkg.documents?.readme?.status === 'available' ? 'readme' : 'description';
@@ -27,8 +27,9 @@ const SEARCH_ICON = raw('<svg class="search-icon" viewBox="0 0 24 24" aria-hidde
 const DEFAULT_DESCRIPTION = 'Search Haskell package metadata, modules, dependencies, READMEs, and changelogs.';
 
 // Render a complete page. The content is the main section of the page.
-export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, noindex = false, page, query = '', content }) {
-  const fullTitle = title ? `${title} · ${SITE}` : `${SITE} · Haskell packages`;
+export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, noindex = false, page, query = '', content, scripts = [] }) {
+  const site = page === 'builder' || page === 'documentation' ? 'AIHC Haddock' : SITE;
+  const fullTitle = title ? `${title} · ${site}` : `${site} · Haskell packages`;
   const home = page === 'home';
   return `<!doctype html>\n${render(html`<html lang="en">
 <head>
@@ -41,7 +42,7 @@ export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, no
   ${canonical ? html`<link rel="canonical" href="${canonical}">` : ''}
   ${noindex ? raw('<meta name="robots" content="noindex">') : ''}
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="${SITE}">
+  <meta property="og:site_name" content="${site}">
   <meta property="og:title" content="${title || `${SITE} · Haskell packages`}">
   <meta property="og:description" content="${description}">
   ${canonical ? html`<meta property="og:url" content="${canonical}">` : ''}
@@ -53,13 +54,14 @@ export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, no
   <link rel="stylesheet" href="/style.css">
   <script src="/theme.js"></script>
   <script type="module" src="/app.js"></script>
+  ${scripts.map(src => html`<script type="module" src="${src}"></script>`)}
 </head>
 <body data-page="${page}">
   <a class="skip" href="#content">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="/"><span class="mark">${MARK}</span><span>AIHC <strong>Hackage</strong></span></a>
+    <a class="brand" href="/" aria-label="${site}"><span class="mark">${MARK}</span><span>AIHC <strong>${page === 'builder' || page === 'documentation' ? 'Haddock' : 'Hackage'}</strong></span></a>
     <form class="header-search" role="search" action="/search" method="get"${home ? raw(' hidden') : ''}><label class="visually-hidden" for="header-query">Search packages</label><input id="header-query" name="q" type="search" maxlength="200" placeholder="Search packages…" autocomplete="off"></form>
-    <nav aria-label="Main"><a href="/"${home ? raw(' aria-current="page"') : ''}>Packages</a><a href="/shell/">Shell</a><a href="https://docs.aihc.app/">Manual<span aria-hidden="true"> ↗</span></a><button id="theme" class="icon-button" type="button" title="Use the light mode"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d=""/></svg></button></nav>
+    <nav aria-label="Main"><a href="/search"${home ? raw(' aria-current="page"') : ''}>Packages</a><a href="/build">Generate docs</a>${page === 'builder' || page === 'documentation' ? '' : html`<a href="/shell/">Shell</a>`}<a href="https://docs.aihc.app/">Manual<span aria-hidden="true"> ↗</span></a><button id="theme" class="icon-button" type="button" title="Use the light mode"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d=""/></svg></button></nav>
   </header>
   <main id="content" tabindex="-1">
     ${home ? html`<section id="home" class="home">
@@ -70,7 +72,7 @@ export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, no
     <p id="status" role="status" aria-live="polite"></p>
     <section id="view">${content}</section>
   </main>
-  <footer class="site-footer"><p>AIHC Hackage · Metadata from <a href="https://hackage.haskell.org">Hackage</a></p><nav aria-label="Footer"><button id="open-import" class="link-button" type="button">Import a package</button><a href="https://blog.aihc.app/">Journal</a><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a></nav></footer>
+  <footer class="site-footer"><p>${site} · Metadata from <a href="https://hackage.haskell.org">Hackage</a></p><nav aria-label="Footer"><button id="open-import" class="link-button" type="button">Import a package</button><a href="https://blog.aihc.app/">Journal</a><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a></nav></footer>
   <dialog id="import-dialog" aria-labelledby="import-title">
     <form id="import-form">
       <h2 id="import-title">Import a package</h2>
@@ -161,8 +163,9 @@ function descriptionTab(pkg) {
   return html`<div class="prose">${raw(haddock(text, module => searchHref(module)))}</div>`;
 }
 function apiTab(pkg) {
-  if (!pkg.exposedModules.length) return emptyNote('This package does not expose modules.');
-  return html`<div>${note('This list includes modules from all conditional branches.')}
+  const docs = html`<p class="tab-actions">${pkg.documentation ? html`<a href="/docs/${pkg.documentation.id}">Read ${pkg.documentation.provenance === 'verified' ? 'verified' : 'community'} documentation →</a> · ` : ''}<a href="/build?name=${encode(pkg.name)}&version=${encode(pkg.version)}">Generate documentation</a></p>`;
+  if (!pkg.exposedModules.length) return html`${docs}${emptyNote('This package does not expose modules.')}`;
+  return html`<div>${docs}${note('This list includes modules from all conditional branches.')}
     <ul class="module-list">${[...pkg.exposedModules].sort().map(name => html`<li>${name}</li>`)}</ul></div>`;
 }
 function dependencyTable(rows, columns) {
@@ -252,7 +255,7 @@ export function packagePage({ origin, pkg, reverse, tab, documents = {} }) {
     return html`<a href="${packageHref(pkg.name, pkg.version, key)}" data-tab="${key}"${key === active ? raw(' aria-current="page"') : ''}>${label}${count !== undefined ? html`<span class="count">${count}</span>` : ''}</a>`;
   });
   const synopsis = (pkg.fields.synopsis || []).join(' ');
-  const content = html`<div class="package-head"><a class="back" href="/">← All packages</a>
+  const content = html`<div class="package-head"><a class="back" href="/search">← All packages</a>
     <h1 class="package-title">${pkg.name}<span class="badge">${pkg.version}</span></h1>
     <p class="lede">${synopsis || 'No synopsis in the Cabal file.'}</p></div>
     <div class="package-layout"><div class="package-main"><nav class="tabs" aria-label="Package sections">${tabs}</nav>
@@ -266,12 +269,12 @@ export function packagePage({ origin, pkg, reverse, tab, documents = {} }) {
 
 // Render the page for a package or version that is not imported.
 export function missingPackagePage({ name, version, message }) {
-  const content = html`<a class="back" href="/">← All packages</a><div class="empty"><h3>${message}</h3>
+  const content = html`<a class="back" href="/search">← All packages</a><div class="empty"><h3>${message}</h3>
     <p>The site contains imported versions only. ${importButton(`Import ${name} from Hackage`, name, version || '')}</p></div>`;
   return layout({ title: version ? `${name}-${version}` : name, page: 'package', noindex: true, content });
 }
 export function errorPage(message) {
-  const content = html`<a class="back" href="/">← All packages</a><div class="empty"><h3>${message}</h3></div>`;
+  const content = html`<a class="back" href="/search">← All packages</a><div class="empty"><h3>${message}</h3></div>`;
   return layout({ title: 'Error', page: 'package', noindex: true, content });
 }
 
