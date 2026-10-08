@@ -147,6 +147,7 @@ The compiler uses this index and the downloaded sources with `--locked`.
 The CI build sandbox prevents network access during compilation.
 The build does not run `cabal update` or download the full Hackage index.
 
+Update compiler inputs in `flake.lock` on Linux.
 After a dependency lock change, run `python3 scripts/update-nix-sources.py`.
 Review the changed hashes with the changed lock entries.
 After an npm dependency change, update `npmDepsHash` in `flake.nix` with the result from `prefetch-npm-deps package-lock.json`.
