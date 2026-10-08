@@ -107,7 +107,8 @@ A line that contains only a period starts a new paragraph.
 Use Node.js 24, Nix, Git, and Just.
 Build the components on Linux with an x86-64 or ARM64 processor.
 On macOS, download the `worker-build` artifact from a successful continuous integration (CI) run into the checkout.
-Run `npm ci`, then continue at step 3.
+Run `npm ci`.
+Continue at step 3.
 
 1. Run `npm ci`.
 2. Run `just build`.
@@ -156,6 +157,7 @@ Run `python3 -m unittest discover -s test -p '*_test.py'` with Python 3.12 or la
 The `main` branch requires a PR and the `check` status.
 The rule applies to administrators.
 Each push to `main` runs checks and deploys the checked build.
+
 GitHub Actions stores the Nix component outputs in a binary cache.
 Its key includes the compiler locks, component sources, dependency hashes, and asset build scripts.
 An exact cache match restores the outputs without compiler evaluation or compilation.
