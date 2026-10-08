@@ -137,7 +137,7 @@ Run `nix build .#components` to build all component assets.
 Run `scripts/build-components.sh` to also copy these assets into the checkout.
 `just build` uses this script, then builds the browser shell.
 The parser and Haddock build scripts select their separate asset derivations.
-Repeated commands reuse the Nix store outputs.
+Repeated commands use the existing Nix store outputs.
 Changes to site pages, styles, or Worker code do not change these derivations.
 
 `nix/sources.json` records hashes for every locked Hackage archive and Cabal revision.
@@ -161,7 +161,7 @@ Each push to `main` runs checks and deploys the checked build.
 GitHub Actions stores the Nix component outputs in a binary cache.
 Its key includes the compiler locks, component sources, dependency hashes, and asset build scripts.
 An exact cache match restores the outputs without compiler evaluation or compilation.
-A partial match lets Nix reuse unchanged component outputs.
+A partial match lets Nix use unchanged component outputs.
 When the cache key changes, CI restores the larger compiler dependency cache.
 Nix then builds only outputs that are absent from the restored store.
 

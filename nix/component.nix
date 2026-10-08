@@ -48,7 +48,7 @@ in
       pkgs.wasm-component-ld
       pkgs.haskellPackages.hsc2hs
     ];
-    # A component must not retain the compiler or its build dependencies.
+    # A component must have no references to the compiler or its build dependencies.
     allowedReferences = [];
   } ''
     export HOME="$TMPDIR/home"
