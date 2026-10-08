@@ -106,8 +106,8 @@ A line that contains only a period starts a new paragraph.
 
 Use Node.js 24, Nix, Git, and Just.
 Build the components on Linux with an x86-64 or ARM64 processor.
-On macOS, use a Linux Nix builder or download the `worker-build` artifact from a successful CI run.
-CI means continuous integration.
+On macOS, download the `worker-build` artifact from a successful continuous integration (CI) run into the checkout.
+Run `npm ci`, then continue at step 3.
 
 1. Run `npm ci`.
 2. Run `just build`.
@@ -160,7 +160,8 @@ GitHub Actions stores the Nix component outputs in a binary cache.
 Its key includes the compiler locks, component sources, dependency hashes, and asset build scripts.
 An exact cache match restores the outputs without compiler evaluation or compilation.
 A partial match lets Nix reuse unchanged component outputs.
-Only a missing output requires the larger compiler dependency cache.
+When the cache key changes, CI restores the larger compiler dependency cache.
+Nix then builds only outputs that are absent from the restored store.
 
 The check job uploads the generated modules, parser component, and complete static asset directory.
 The deployment job downloads this artifact and runs `npm run deploy:built`.
