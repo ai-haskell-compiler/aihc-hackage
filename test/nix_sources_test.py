@@ -2,6 +2,8 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -13,6 +15,33 @@ spec.loader.exec_module(cache)
 
 
 class NixSourcesTest(unittest.TestCase):
+    def test_component_copy_removes_old_modules_and_keeps_site_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, output = root / "repo", root / "output"
+            (repo / "scripts").mkdir(parents=True)
+            shutil.copyfile(ROOT / "scripts/use-components.sh", repo / "scripts/use-components.sh")
+            (repo / "generated").mkdir()
+            (repo / "generated/old.wasm").write_bytes(b"old")
+            (repo / "public").mkdir()
+            (repo / "public/style.css").write_text("site")
+            for path in ("generated/parser.js", "public/shell/haddock/module.wasm.gz",
+                         "public/shell/toolchain/clang.gz", "parser.wasm", "haddock.wasm"):
+                target = output / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"component")
+                target.chmod(0o444)
+            command = ["bash", str(repo / "scripts/use-components.sh"), str(output)]
+            for _ in range(2):
+                subprocess.run(command, check=True)
+                self.assertFalse((repo / "generated/old.wasm").exists())
+                self.assertEqual((repo / "public/style.css").read_text(), "site")
+                self.assertEqual((repo / "generated/parser.js").read_bytes(), b"component")
+                self.assertTrue((repo / "parser.wasm").stat().st_mode & 0o200)
+            (output / "haddock.wasm").unlink()
+            self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertTrue((repo / "generated/parser.js").exists())
+
     def test_all_locked_downloads_have_hashes(self):
         sources = json.loads((ROOT / "nix/sources.json").read_text())
         expected = set()

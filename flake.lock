@@ -6,7 +6,7 @@
       },
       "locked": {
         "lastModified": 1791273542,
-        "narHash": "sha256-BsibmP+aD4KkIRstsV4r/7fY3BryMW7zFRvGg8i49j8=",
+        "narHash": "sha256-N9S8vyzOMbmhN/Ob13HQsiWGkzKsDr9lwApQ6HgUBi0=",
         "owner": "ai-haskell-compiler",
         "repo": "aihc",
         "rev": "7b0c849328ad36de9135bcc215c706187d6beb0c",
@@ -57,7 +57,7 @@
       },
       "locked": {
         "lastModified": 1791049488,
-        "narHash": "sha256-FO3AIB53Y1F6slZfKZRaLwNJapBS2XoJO7RRYlTm9V8=",
+        "narHash": "sha256-t4gFuAu/KIqdwNATMFLuKSc3e88Ss5NcPETG9mzg78E=",
         "owner": "ai-haskell-compiler",
         "repo": "aihc",
         "rev": "bf991343a626e758a7d6d616770824fb55aaac92",

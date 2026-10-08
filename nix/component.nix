@@ -55,8 +55,9 @@ in
     export AIHC_WASM_CLANG=${pkgs.llvmPackages.clang-unwrapped}/bin/clang
     export AIHC_WASM_SYSROOT=${wasmSysroot}
     export AIHC_HSC2HS=${pkgs.haskellPackages.hsc2hs}/bin/hsc2hs
-    export AIHC_CORE_LIBS_ROOT=${compiler}
-    mkdir -p "$XDG_CACHE_HOME/aihc" workspace "$out"
+    export AIHC_CORE_LIBS_ROOT="$TMPDIR/compiler"
+    mkdir -p "$XDG_CACHE_HOME/aihc" "$AIHC_CORE_LIBS_ROOT" workspace "$out"
+    cp -R ${compiler}/core-libs "$AIHC_CORE_LIBS_ROOT/core-libs"
     cp -R ${cache}/. "$XDG_CACHE_HOME/aihc/"
     chmod -R u+w "$HOME"
     # The compiler checks the table age before it reads the fixed index.
@@ -65,7 +66,7 @@ in
     chmod -R u+w workspace/${name}
     cp ${lockFile} workspace/${name}/aihc.lock
     ${lib.concatMapStringsSep "\n" (package: ''
-        ln -s ${compiler}/tooling/${package} workspace/${package}
+        cp -R ${compiler}/tooling/${package} workspace/${package}
       '')
       localPackages}
     ${compiler.apps.${system}.aihc.program} build "$PWD/workspace/${name}" \
