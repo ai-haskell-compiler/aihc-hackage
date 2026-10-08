@@ -22,15 +22,24 @@
         inherit pkgs system;
         compiler = parserCompiler;
         name = "aihc-hackage-parser";
-        source = ./parser;
-        lockFile = ./parser/aihc.lock;
+        source = pkgs.lib.fileset.toSource {
+          root = ./parser;
+          fileset = ./parser;
+        };
+        lockFile = builtins.path {
+          path = ./parser/aihc.lock;
+          name = "parser-aihc.lock";
+        };
       };
       haddock = import ./nix/component.nix {
         inherit pkgs system;
         compiler = haddockCompiler;
         name = "aihc-haddock";
         source = haddockCompiler + /bin/aihc-haddock;
-        lockFile = ./haddock/aihc.lock;
+        lockFile = builtins.path {
+          path = ./haddock/aihc.lock;
+          name = "haddock-aihc.lock";
+        };
         localPackages = ["aihc-hackage" "aihc-package-plan" "aihc-http"];
       };
       transpile = name: component: script:

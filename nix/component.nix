@@ -32,7 +32,10 @@
       dependencies;
   });
   cache = pkgs.runCommand "${name}-sources" {nativeBuildInputs = [pkgs.python3];} ''
-    python ${./hackage-cache.py} ${manifest} "$out"
+    python ${builtins.path {
+      path = ./hackage-cache.py;
+      name = "hackage-cache.py";
+    }} ${manifest} "$out"
   '';
   wasmSysroot = import (compiler + /scripts/nix/wasi-sysroot.nix) pkgs;
 in
