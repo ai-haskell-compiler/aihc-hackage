@@ -44,7 +44,7 @@ def main():
 
         check("public/style.css", set())
         check("src/worker.js", set())
-        check("parser/src/Main.hs", {"parser", "parser-assets", "components", "default"})
+        check("parser/src/Main.hs", {"parser", "parser-assets", "parser-style", "components", "default"})
         check("haddock/aihc.lock", {"haddock", "haddock-assets", "components", "default"})
         check("scripts/transpile.mjs", {"parser-assets", "components", "default"})
         check("scripts/transpile-haddock.mjs", {"haddock-assets", "components", "default"})

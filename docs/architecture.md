@@ -127,7 +127,10 @@ The `parser` and `haddock` derivations compile the Wasm components separately.
 The `parser-assets` and `haddock-assets` derivations produce JavaScript, core Wasm modules, and browser archives.
 The `toolchain` derivation supplies the compressed browser C toolchain.
 `shell/toolchain.json` fixes its revision and SHA-256 digests.
+
 The `components` derivation collects these outputs.
+The `parser-style` derivation checks Haskell formatting and lint rules.
+CI also caches this check, so unchanged parser sources do not need the lint tools again.
 
 Run `nix build .#components` to build all component assets.
 Run `scripts/build-components.sh` to also copy these assets into the checkout.

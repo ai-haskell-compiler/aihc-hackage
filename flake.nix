@@ -18,6 +18,19 @@
   in {
     packages = forAllSystems (system: let
       pkgs = import nixpkgs {inherit system;};
+      parserStyleSource = pkgs.lib.fileset.toSource {
+        root = ./parser/src;
+        fileset = ./parser/src;
+      };
+      parserStyle =
+        pkgs.runCommand "parser-style" {
+          nativeBuildInputs = [pkgs.ormolu pkgs.hlint];
+          allowedReferences = [];
+        } ''
+          ormolu --mode check ${parserStyleSource}/Main.hs
+          hlint ${parserStyleSource}
+          touch "$out"
+        '';
       parser = import ./nix/component.nix {
         inherit pkgs system;
         compiler = parserCompiler;
@@ -81,8 +94,10 @@
       inherit parser haddock components toolchain;
       parser-assets = parserAssets;
       haddock-assets = haddockAssets;
+      parser-style = parserStyle;
       default = components;
     });
+    checks = forAllSystems (system: {parser-style = self.packages.${system}.parser-style;});
     devShells = nixpkgs.lib.genAttrs (systems ++ ["aarch64-darwin" "x86_64-darwin"]) (system: let
       pkgs = import nixpkgs {inherit system;};
     in {default = pkgs.mkShell {packages = [pkgs.nodejs_24 pkgs.just pkgs.ormolu pkgs.hlint];};});
