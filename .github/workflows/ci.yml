@@ -12,48 +12,53 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        id: compiler
-        with:
-          repository: ai-haskell-compiler/aihc
-          ref: bf991343a626e758a7d6d616770824fb55aaac92
-          path: .compiler
-      - uses: actions/checkout@v4
-        id: haddock-compiler
-        with:
-          repository: ai-haskell-compiler/aihc
-          ref: 7b0c849328ad36de9135bcc215c706187d6beb0c
-          path: .compiler-haddock
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
       - uses: cachix/install-nix-action@v31
-      - name: Restore and save Nix store
+        with:
+          extra_nix_config: |
+            sandbox = true
+            max-jobs = 1
+      - name: Restore component binary cache
+        id: components
+        uses: actions/cache/restore@v4
+        with:
+          path: .component-cache
+          key: components-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**', 'parser/**', 'haddock/aihc.lock', 'package.json', 'package-lock.json', 'scripts/transpile.mjs', 'scripts/transpile-haddock.mjs') }}
+          restore-keys: components-v1-${{ runner.os }}-${{ runner.arch }}-
+      - name: Import cached Nix outputs
+        if: steps.components.outputs.cache-matched-key != ''
+        run: nix copy --all --no-check-sigs --from "file://$PWD/.component-cache"
+      - name: Restore and save compiler build dependencies
+        if: steps.components.outputs.cache-hit != 'true'
         uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
         with:
-          # The compiler commit also pins its flake inputs and Nix expressions.
-          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ steps.compiler.outputs.commit }}-${{ steps.haddock-compiler.outputs.commit }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}-
-      - uses: actions/cache@v4
+          primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}-
+            nix-${{ runner.os }}-${{ runner.arch }}-
+      - name: Build components
+        if: steps.components.outputs.cache-hit != 'true'
+        run: |
+          scripts/build-components.sh
+          rm -rf .component-cache
+          nix copy --to "file://$PWD/.component-cache" .#parser .#haddock .#parser-assets .#haddock-assets .#components
+          readlink -f result-components > .component-cache/store-path
+      - name: Use cached components
+        if: steps.components.outputs.cache-hit == 'true'
+        run: cp -R "$(cat .component-cache/store-path)/." .
+      - name: Save component binary cache
+        if: steps.components.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
-          path: |
-            ~/.cabal
-            ~/.cache/cabal
-            ~/.local/state/cabal
-            ~/.cache/aihc
-            ~/.local/share/aihc
-            .compiler/dist-newstyle
-            .compiler-haddock/dist-newstyle
-            .parser-build
-            .haddock-build
-          key: parser-${{ runner.os }}-bf991343-7b0c849-${{ hashFiles('parser/aihc.lock', 'haddock/aihc.lock', 'package-lock.json') }}
+          path: .component-cache
+          key: ${{ steps.components.outputs.cache-primary-key }}
       - run: npm ci
-      - run: scripts/build-parser.sh
-      - run: scripts/build-haddock.sh
-      - run: npm run build
-      - run: nix develop .compiler --command ormolu --mode check parser/src/Main.hs
-      - run: nix develop .compiler --command hlint parser/src
+      - run: python3 -m unittest discover -s test -p '*_test.py'
+      - run: nix develop --command ormolu --mode check parser/src/Main.hs
+      - run: nix develop --command hlint parser/src
       - run: npx wrangler types
       - run: npm run check
       - uses: actions/upload-artifact@v4
@@ -62,7 +67,7 @@ jobs:
           path: |
             generated/
             parser.wasm
-            public/shell/haddock/
+            public/
           retention-days: 7
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -85,7 +90,7 @@ jobs:
         with:
           name: worker-build
       - run: npm ci
-      - run: npm run deploy
+      - run: npm run deploy:built
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

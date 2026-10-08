@@ -1,12 +1,11 @@
 fmt:
-    nix develop .compiler --quiet --command ormolu --mode inplace parser/src/Main.hs
+    nix develop --quiet --command ormolu --mode inplace parser/src/Main.hs
+    nix fmt -- flake.nix nix/*.nix
 
 check:
-    nix develop .compiler --quiet --command ormolu --mode check parser/src/Main.hs
-    nix develop .compiler --quiet --command hlint parser/src
+    nix develop --quiet --command ormolu --mode check parser/src/Main.hs
+    nix develop --quiet --command hlint parser/src
     npm run check
 
 build:
-    scripts/build-parser.sh
-    scripts/build-haddock.sh
     npm run build
