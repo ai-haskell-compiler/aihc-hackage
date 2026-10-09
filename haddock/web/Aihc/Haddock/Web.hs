@@ -12,7 +12,7 @@ import Aihc.Haddock.Model (PackageDoc, encodePackageDoc)
 import Aihc.Haddock.Package (documentationHeaderTarget, loadPackageDocIn)
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
-import Control.Monad.State.Strict (StateT, evalStateT, get, modify')
+import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify')
 import Data.Aeson (FromJSON (..), eitherDecode, withObject, (.:))
 import Data.ByteString.Lazy qualified as BL
 import Data.List (find)
