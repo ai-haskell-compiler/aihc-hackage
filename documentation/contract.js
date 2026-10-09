@@ -1,5 +1,5 @@
 // Change the ABI when the plan consumer or documentation model changes.
-export const GENERATOR = 'aihc-haddock-7b0c8493-web-1';
+export const GENERATOR = 'aihc-haddock-aa6debbd-web-2';
 export const TARGET = 'linux-x86_64';
 export const MAX_MODEL = 8 * 1024 * 1024;
 export const MAX_SOURCE = 16 * 1024 * 1024;
@@ -62,7 +62,7 @@ export function validateModel(model, plan) {
     else if (value && typeof value === 'object') for (const child of Object.values(value)) walk(child, depth + 1);
   }
   walk(model, 0);
-  requireValue(model?.format_version === 1 && model.name === plan.root.name && model.version === plan.root.version, 'The documentation does not match the package.');
+  requireValue(model?.format_version === 2 && model.name === plan.root.name && model.version === plan.root.version, 'The documentation does not match the package.');
   requireValue(Array.isArray(model.modules) && model.modules.length <= 2000 && Array.isArray(model.dependencies), 'The documentation model is invalid.');
   const root = plan.packages.find(pkg => pkg.name === plan.root.name);
   const deps = root.dependencies.map(name => { const pkg = plan.packages.find(p => p.name === name); return `${pkg.name}-${pkg.version}`; }).sort();
@@ -74,13 +74,24 @@ export function validateModel(model, plan) {
     requireValue(Array.isArray(mod.decls) && Array.isArray(mod.diagnostics) && mod.diagnostics.every(x => typeof x === 'string')
       && Array.isArray(mod.instances) && (mod.exports === null || Array.isArray(mod.exports)), 'The module model is invalid.');
     function declaration(decl) {
-      requireValue(typeof decl.name === 'string' && decl.name.length > 0 && decl.name.length <= 1000
+      requireValue(decl && typeof decl.name === 'string' && decl.name.length > 0 && decl.name.length <= 1000
         && ['type', 'value'].includes(decl.namespace)
         && (decl.signature === null || typeof decl.signature === 'string') && Array.isArray(decl.subordinates), 'The declaration model is invalid.');
       try { encodeURIComponent(decl.name); } catch { throw new Error('The declaration name contains invalid Unicode.'); }
       decl.subordinates.forEach(declaration);
     }
     mod.decls.forEach(declaration);
+    requireValue(Array.isArray(mod.resolved_exports), 'The resolved export list is invalid.');
+    for (const item of mod.resolved_exports) {
+      requireValue(item && ['resolved_item', 'resolved_module_item', 'section_item', 'doc_item'].includes(item.tag), 'The resolved export item is invalid.');
+      if (item.tag === 'resolved_item') declaration(item.contents);
+      if (item.tag === 'resolved_module_item') {
+        requireValue(Array.isArray(item.contents) && item.contents.length === 3
+          && typeof item.contents[0] === 'string' && MODULE.test(item.contents[1])
+          && Array.isArray(item.contents[2]), 'The resolved module export is invalid.');
+        item.contents[2].forEach(declaration);
+      }
+    }
   }
   return model;
 }

@@ -3,7 +3,7 @@
 
   inputs = {
     parserCompiler.url = "github:ai-haskell-compiler/aihc/bf991343a626e758a7d6d616770824fb55aaac92";
-    haddockCompiler.url = "github:ai-haskell-compiler/aihc/7b0c849328ad36de9135bcc215c706187d6beb0c";
+    haddockCompiler.url = "github:ai-haskell-compiler/aihc/aa6debbd8e6a1486de1d6c1766e12e226c4a3b61";
     nixpkgs.follows = "haddockCompiler/nixpkgs";
   };
 
@@ -81,7 +81,7 @@
           path = ./haddock/aihc.lock;
           name = "haddock-aihc.lock";
         };
-        localPackages = ["aihc-hackage" "aihc-package-plan" "aihc-http"];
+        localPackages = ["tooling/aihc-hackage" "tooling/aihc-package-plan" "tooling/aihc-http" "components/aihc-resolve"];
       };
       planner = import ./nix/component.nix {
         inherit pkgs system;
@@ -95,7 +95,7 @@
           path = ./planner/aihc.lock;
           name = "planner-aihc.lock";
         };
-        localPackages = ["aihc-hackage" "aihc-package-plan"];
+        localPackages = ["tooling/aihc-hackage" "tooling/aihc-package-plan"];
       };
       transpile = name: component: script:
         pkgs.buildNpmPackage {

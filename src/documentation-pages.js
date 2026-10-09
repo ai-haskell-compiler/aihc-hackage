@@ -49,7 +49,7 @@ export function documentationPage(result, selectedName) {
       <h1 class="package-title">${result.name}<span class="badge">${result.version}</span></h1>
       <p class="builder-note">${result.provenance === 'verified' ? 'Verified build. The service reproduced this documentation.' : 'Community contribution. The service has not verified this documentation.'}
       ${result.diagnostics ? ` The generator reported ${result.diagnostics} diagnostics.` : ''}</p>
-      <p class="muted">Target: Linux on x86-64. Some inferred types, re-exported declarations, and resolved links are not available.</p></div>
+      <p class="muted">Target: Linux on x86-64. Some inferred types and resolved links are not available.</p></div>
       <div class="documentation-layout"><nav class="doc-modules" aria-label="Modules"><h2>Modules</h2>${modules.map(mod => html`<a href="${base}/${encodeURIComponent(mod.name)}"${mod === selected ? raw(' aria-current="page"') : ''}>${mod.name}</a>`)}</nav>
       <div>${selected ? renderModule(selected) : html`<p>This result has no exposed modules.</p>`}</div></div>
       <details class="raw"><summary>Build record and source files</summary><p>Generator: <code>${result.plan.generator}</code></p><p>Metadata snapshot: <code>${result.plan.metadataSha256}</code></p>

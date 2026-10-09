@@ -1,7 +1,7 @@
 {
   "format": 1,
   "compiler": "ghc-9.12.4",
-  "index-state": "2026-10-02T22:18:55Z",
+  "index-state": "2026-10-09T08:11:46Z",
   "platforms": {
     "wasi-wasm32": [
       {"name": "OneTuple", "version": "0.4.3", "source": "hackage", "revision": 0, "flags": {"base-ge-4-15":true,"base-ge-4-16":true}},
@@ -16,8 +16,9 @@
       {"name": "aihc-haddock", "version": "0.1.0.0", "source": "local", "flags": {"hackage":false}},
       {"name": "aihc-internal", "version": "9.1204.0", "source": "core"},
       {"name": "aihc-package-plan", "version": "0.1.0.0", "source": "local"},
-      {"name": "aihc-parser", "version": "4.0.0.0", "source": "hackage", "revision": 0},
+      {"name": "aihc-parser", "version": "5.0.0.0", "source": "hackage", "revision": 0},
       {"name": "aihc-prim", "version": "0.13.0", "source": "core"},
+      {"name": "aihc-resolve", "version": "0.1.0.0", "source": "local"},
       {"name": "aihc-rts", "version": "1.0.2", "source": "core"},
       {"name": "aihc-template-haskell", "version": "2.23.0.0", "source": "core"},
       {"name": "ansi-terminal", "version": "1.1.5", "source": "hackage", "revision": 0},

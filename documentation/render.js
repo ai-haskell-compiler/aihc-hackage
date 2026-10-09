@@ -69,14 +69,29 @@ export function renderModule(mod) {
   let content;
   const declarations = new Map(mod.decls.map(decl => [`${decl.namespace}:${decl.name}`, decl]));
   const emitted = new Set();
-  if (mod.exports === null) content = mod.decls.map(decl => declaration(decl));
-  else content = mod.exports.map(item => {
+  const exports = mod.resolved_exports ?? mod.exports;
+  if (exports === null) content = mod.decls.map(decl => declaration(decl));
+  else content = exports.map(item => {
     const values = array(item?.contents);
     if (item?.tag === 'section_item') {
       const [title, body] = splitSection(values[1]);
       return html`<h2>${docMarkup(title)}</h2>${body ? html`<div class="prose">${docMarkup(body)}</div>` : ''}`;
     }
     if (item?.tag === 'doc_item') return html`<div class="prose">${docMarkup(values[1])}</div>`;
+    if (item?.tag === 'resolved_item') {
+      const decl = item.contents;
+      const key = `${decl.namespace}:${decl.name}`;
+      if (emitted.has(key)) return '';
+      emitted.add(key);
+      return declaration(decl);
+    }
+    if (item?.tag === 'resolved_module_item') return html`<p>Module export: <code>${text(values[1])}</code> (${text(values[0])}).</p>
+      ${array(values[2]).map(decl => {
+        const key = `${decl.namespace}:${decl.name}`;
+        if (emitted.has(key)) return '';
+        emitted.add(key);
+        return declaration(decl);
+      })}`;
     if (item?.tag === 'module_item') return html`<p>Module export: <code>${text(item.contents)}</code>. Resolved links are not available.</p>`;
     if (item?.tag !== 'decl_item') return '';
     const key = `${text(values[1])}:${text(values[0])}`;

@@ -303,6 +303,8 @@ The browser platform does not change the documented target.
 `haddock/web/Aihc/Haddock/Web.hs` adds the `web-build PLAN JSON HOOGLE` command to the pinned generator.
 `scripts/prepare-haddock-web.mjs` installs this adapter in a copy of the pinned Haddock source before a Nix build.
 The adapter selects source files with the flags and target from the plan.
+It builds dependency documentation first, so the generator can resolve re-exported declarations.
+The renderer uses resolved exports from model format 2 and can still show saved format 1 results.
 It does not run the dependency solver.
 The original shell commands remain available.
 
@@ -367,9 +369,10 @@ The documentation page shows the provenance and generation diagnostics.
 Community pages have a `noindex` directive.
 The renderer escapes text, restricts links, and respects explicit export lists.
 It does not execute uploaded HTML or scripts.
-Some inferred types, re-exported declarations, cross-package links, and table content are not available in the current generator.
+Some inferred types, cross-package links, and table content are not available in the current generator.
 
 A second Workflow instance rebuilds each uploaded result with the same Wasm component.
+The Workflow Worker can use up to 120 seconds of CPU time for dependency documentation.
 It marks the result as `verified` only when the complete output hash matches.
 Public HTTP routes cannot change this status.
 A failed or different rebuild leaves the result as a community contribution.

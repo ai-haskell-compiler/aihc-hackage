@@ -69,7 +69,7 @@ in
     chmod -R u+w workspace/${name}
     cp ${lockFile} workspace/${name}/aihc.lock
     ${lib.concatMapStringsSep "\n" (package: ''
-        cp -R ${compiler}/tooling/${package} workspace/${package}
+        cp -R ${compiler}/${package} workspace/${baseNameOf package}
       '')
       localPackages}
     ${compiler.apps.${system}.aihc.program} build "$PWD/workspace/${name}" \

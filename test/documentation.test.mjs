@@ -39,10 +39,10 @@ test('The documentation renderer escapes markup and honors export lists.', async
   assert.match(html, /&lt;script&gt;/); assert.match(html, /greet/);
   assert.doesNotMatch(html, /javascript:|privateValue|<script>/);
   const model = fixtureModel(plan);
-  model.modules[0].exports.unshift({ tag: 'section_item', contents: [1, { tag: 'DocAppend',
+  model.modules[0].resolved_exports.unshift({ tag: 'section_item', contents: [1, { tag: 'DocAppend',
     first: { tag: 'DocString', string: 'Section title\n\nSection text.' }, second: { tag: 'DocString', string: ' More text.' } }] });
   assert.match(previewHtml(model), /<h2>Section title<\/h2><div class="prose">\nSection text\. More text\.<\/div>/);
-  model.modules[0].exports.push(...Array(1000).fill(model.modules[0].exports[1]));
+  model.modules[0].resolved_exports.push(...Array(1000).fill(model.modules[0].resolved_exports[1]));
   assert.equal((previewHtml(model).match(/id="decl-value-greet"/g) || []).length, 1);
   model.modules[0].decls[0].name = '\ud800';
   assert.throws(() => validateModel(model, plan), /Unicode/);
@@ -82,9 +82,18 @@ test('Cloudflare Workflows plan, cache sources, accept uploads, and verify exact
     await db.prepare(`INSERT INTO releases (name,version,version_sort,synopsis,description,license,modules,metadata_key,cabal_key,sha256,imported_at)
       VALUES ('docs-sample','0.1.0.0','0001','','','','','','root-cabal',?,'2026-10-08')`).bind(rootSha).run();
     let ip = 0;
-    const request = (path, body, { method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) =>
-      mf.dispatchFetch(`http://localhost/api/docs${path}`, { method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `test-${ip++}`, ...headers },
+    const request = async (path, body, { method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) => {
+      const send = () => mf.dispatchFetch(`http://localhost/api/docs${path}`, { method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `test-${ip++}`, ...headers },
         body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+      try {
+        return await send();
+      } catch (error) {
+        if (method !== 'GET' || error.cause?.code !== 'UND_ERR_SOCKET') throw error;
+        // The test server can close an idle connection during a documentation build.
+        await delay(100);
+        return send();
+      }
+    };
     assert.equal((await request('/plans', 'null')).status, 400);
     assert.equal((await request('/plans', { name: 'missing', version: '1.0' })).status, 404);
     assert.equal((await request('/plans', fixture.plan.root, { headers: { Origin: 'https://other.test' } })).status, 403);
@@ -141,4 +150,24 @@ test('Cloudflare Workflows plan, cache sources, accept uploads, and verify exact
     assert.match(builder.headers.get('content-security-policy'), /wasm-unsafe-eval/);
     assert.match(await builder.text(), /builder\/assets\/app.js/);
   } finally { await mf.dispose(); }
+});
+
+test('Resolved declarations are checked before rendering, and saved models remain readable.', async () => {
+  const { plan } = await fixturePlan();
+  const model = fixtureModel(plan);
+  const mod = model.modules[0];
+  mod.decls = [];
+  assert.match(previewHtml(validateModel(model, plan)), /greet/);
+  mod.resolved_exports[0].contents.name = '\ud800';
+  assert.throws(() => validateModel(model, plan), /Unicode/);
+  mod.resolved_exports = [{ tag: 'resolved_module_item', contents: ['docs-dep-1.0', 'Dep', [{ name: '\ud800', namespace: 'value', signature: null, subordinates: [] }]] }];
+  assert.throws(() => validateModel(model, plan), /Unicode/);
+  mod.resolved_exports[0].contents[2] = 'invalid';
+  assert.throws(() => validateModel(model, plan), /module export/);
+  const legacy = fixtureModel(plan);
+  legacy.format_version = 1;
+  delete legacy.modules[0].resolved_exports;
+  assert.match(previewHtml(legacy), /greet/);
+  assert.doesNotMatch(previewHtml(legacy), /privateValue/);
+  assert.throws(() => validateModel(legacy, plan), /match/);
 });

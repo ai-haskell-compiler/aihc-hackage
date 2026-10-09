@@ -35,11 +35,34 @@ export async function fixturePlan() {
   return { plan, files, cabal };
 }
 export function fixtureModel(plan) {
-  return { format_version: 1, name: plan.root.name, version: plan.root.version, dependencies: [], modules: [{ name: 'Docs.Sample', exposed: true,
+  const model = { format_version: 2, name: plan.root.name, version: plan.root.version, dependencies: [], modules: [{ name: 'Docs.Sample', exposed: true,
     description: { document: { tag: 'DocString', string: '<script>unsafe()</script>' } }, diagnostics: ['A type signature is missing.'], instances: [],
     exports: [{ tag: 'decl_item', contents: ['greet', 'value', { tag: 'no_subordinates' }] }],
     decls: [{ name: 'greet', namespace: 'value', kind: 'function', signature: 'String -> String', subordinates: [],
       doc: { document: { tag: 'DocHyperlink', hyperlink: { hyperlinkUrl: 'javascript:alert(1)', hyperlinkLabel: { tag: 'DocString', string: 'Unsafe link' } } } } },
     { name: 'privateValue', namespace: 'value', kind: 'function', signature: 'Bool', subordinates: [] }],
   }] };
+  model.modules[0].resolved_exports = [{ tag: 'resolved_item', contents: model.modules[0].decls[0] }];
+  return model;
+}
+
+export async function reexportPlan() {
+  const files = new Map();
+  const packages = [];
+  async function add(name, modules, dependencies = [], options = '') {
+    const cabal = `cabal-version: 2.4\nname: ${name}\nversion: 1.0\n${options}\nlibrary\n  exposed-modules: ${modules[0][0]}\n  other-modules: ${modules.slice(1).map(([name]) => name).join(', ')}\n  hs-source-dirs: src\n  default-language: Haskell2010\n${dependencies.length ? `  build-depends: ${dependencies.join(', ')}\n` : ''}`;
+    const archive = gzipSync(tar([[`${name}-1.0/${name}.cabal`, cabal],
+      ...modules.map(([module, source]) => [`${name}-1.0/src/${module.replaceAll('.', '/')}.hs`, source])]));
+    const cabalSha256 = await digest(encode(cabal)); const archiveSha256 = await digest(archive);
+    files.set(cabalSha256, encode(cabal)); files.set(archiveSha256, archive);
+    packages.push({ name, version: '1.0', source: 'hackage', revision: 0, cabalSha256, archiveSha256,
+      archiveSize: archive.length, flags: {}, dependencies });
+  }
+  await add('docs-root', [['Public', 'module Public (localValue, fromDep, module Dep) where\nimport Internal\nimport Dep\n'],
+    ['Internal', 'module Internal where\n-- | A value from a hidden module.\nlocalValue :: Int\nlocalValue = 1\n']], ['docs-dep']);
+  await add('docs-dep', [['Dep', 'module Dep (fromDep) where\nimport Leaf\n']], ['docs-leaf']);
+  await add('docs-leaf', [['Leaf', 'module Leaf where\n-- | A value from a dependency.\nfromDep :: Int\nfromDep = 2\n']]);
+  const plan = { format: 1, generator: GENERATOR, target: TARGET, metadataSha256: 'a'.repeat(64), resolvedAt: 1790899200,
+    root: { name: 'docs-root', version: '1.0', cabalSha256: packages[0].cabalSha256 }, packages };
+  return { plan, files };
 }
