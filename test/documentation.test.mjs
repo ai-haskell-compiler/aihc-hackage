@@ -82,9 +82,18 @@ test('Cloudflare Workflows plan, cache sources, accept uploads, and verify exact
     await db.prepare(`INSERT INTO releases (name,version,version_sort,synopsis,description,license,modules,metadata_key,cabal_key,sha256,imported_at)
       VALUES ('docs-sample','0.1.0.0','0001','','','','','','root-cabal',?,'2026-10-08')`).bind(rootSha).run();
     let ip = 0;
-    const request = (path, body, { method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) =>
-      mf.dispatchFetch(`http://localhost/api/docs${path}`, { method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `test-${ip++}`, ...headers },
+    const request = async (path, body, { method = body === undefined ? 'GET' : 'POST', headers = {} } = {}) => {
+      const send = () => mf.dispatchFetch(`http://localhost/api/docs${path}`, { method, headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `test-${ip++}`, ...headers },
         body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body) });
+      try {
+        return await send();
+      } catch (error) {
+        if (method !== 'GET' || error.cause?.code !== 'UND_ERR_SOCKET') throw error;
+        // The test server can close an idle connection during a documentation build.
+        await delay(100);
+        return send();
+      }
+    };
     assert.equal((await request('/plans', 'null')).status, 400);
     assert.equal((await request('/plans', { name: 'missing', version: '1.0' })).status, 404);
     assert.equal((await request('/plans', fixture.plan.root, { headers: { Origin: 'https://other.test' } })).status, 403);
