@@ -31,7 +31,7 @@ def fetch(package):
 
 def main():
     packages = {}
-    for component in ("parser", "haddock"):
+    for component in ("parser", "haddock", "planner"):
         lock = json.loads((ROOT / component / "aihc.lock").read_text())
         for package in lock["platforms"]["wasi-wasm32"]:
             if package["source"] == "hackage":

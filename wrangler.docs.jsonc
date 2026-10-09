@@ -1,0 +1,43 @@
+{
+  "account_id": "d4a32894a9531f0a887025623b0bd7ce",
+  "compatibility_date": "2026-10-03",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aihc-hackage",
+      "database_id": "1591b1f3-16fb-48bb-a0e8-20fc74eb124e",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CABAL",
+      "bucket_name": "aihc-hackage"
+    }
+  ],
+  "limits": {
+    "cpu_ms": 30000
+  },
+  "observability": {
+    "enabled": true
+  },
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aihc-documentation",
+  "main": "src/documentation-workflow.js",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS"
+  },
+  "workflows": [
+    {
+      "name": "aihc-documentation",
+      "binding": "DOC_WORKFLOW",
+      "class_name": "DocumentationWorkflow"
+    }
+  ]
+}

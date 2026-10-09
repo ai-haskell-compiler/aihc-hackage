@@ -1,3 +1,4 @@
+import { externalizeWasm } from './externalize-wasm.mjs';
 import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -10,6 +11,7 @@ const result = await transpileBytes(component, {
   name: 'haddock', instantiation: 'async', wasiShim: false,
   nodejsCompat: false, base64Cutoff: 0,
 });
+externalizeWasm(result.files, 'haddock');
 await mkdir('generated/haddock', { recursive: true });
 await mkdir('public/shell/haddock', { recursive: true });
 const modules = [];
@@ -21,6 +23,10 @@ for (const [name, bytes] of Object.entries(result.files)) {
     await writeFile(`public/shell/haddock/${name}.gz`, gzipSync(bytes, { level: 9 }));
   }
 }
+await writeFile('generated/haddock/core-modules.js',
+  modules.map((name, index) => `import core${index} from './${name}';`).join('\n') +
+  `\nconst modules = {${modules.map((name, index) => `${JSON.stringify(name)}: core${index}`).join(',')}};\n` +
+  `export const getCoreModule = path => modules[path];\n`);
 await writeFile('generated/haddock/modules.json', JSON.stringify(modules.sort()));
 await writeFile('public/shell/haddock/modules.json', JSON.stringify(modules));
 

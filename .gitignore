@@ -31,3 +31,14 @@ result
 result-*
 .component-cache/
 __pycache__/
+
+.planner-state/
+public/builder/
+.planner-build.log
+
+planner.wasm
+.planner-build/
+.planner-output/
+.planner-workspace/
+.planner-wasm-build.log
+dist-docs/

@@ -26,7 +26,7 @@ class NixSourcesTest(unittest.TestCase):
             (repo / "public").mkdir()
             (repo / "public/style.css").write_text("site")
             for path in ("generated/parser.js", "public/shell/haddock/module.wasm.gz",
-                         "public/shell/toolchain/clang.gz", "parser.wasm", "haddock.wasm"):
+                         "public/shell/toolchain/clang.gz", "parser.wasm", "haddock.wasm", "planner.wasm"):
                 target = output / path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"component")
@@ -45,7 +45,7 @@ class NixSourcesTest(unittest.TestCase):
     def test_all_locked_downloads_have_hashes(self):
         sources = json.loads((ROOT / "nix/sources.json").read_text())
         expected = set()
-        for component in ("parser", "haddock"):
+        for component in ("parser", "haddock", "planner"):
             lock = json.loads((ROOT / component / "aihc.lock").read_text())
             for package in lock["platforms"]["wasi-wasm32"]:
                 if package["source"] != "hackage":

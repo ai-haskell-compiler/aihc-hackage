@@ -1,0 +1,23 @@
+cabal-version: 3.8
+name: aihc-doc-plan
+version: 0.1.0.0
+build-type: Simple
+license: Unlicense
+synopsis: Resolve documentation plans from supplied package metadata
+
+executable aihc-doc-plan
+  main-is: Main.hs
+  hs-source-dirs: src
+  build-depends:
+    base >=4.16 && <5,
+    aeson,
+    aihc-cabal-syntax,
+    aihc-hackage,
+    aihc-package-plan,
+    bytestring,
+    containers,
+    directory,
+    filepath,
+    text
+  default-language: GHC2021
+  ghc-options: -Wall -rtsopts

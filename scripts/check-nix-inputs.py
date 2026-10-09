@@ -46,8 +46,14 @@ def main():
         check("src/worker.js", set())
         check("parser/src/Main.hs", {"parser", "parser-assets", "parser-style", "components", "default"})
         check("haddock/aihc.lock", {"haddock", "haddock-assets", "components", "default"})
+        check("haddock/web/Aihc/Haddock/Web.hs", {"haddock", "haddock-assets", "planner-style", "components", "default"})
+        check("scripts/prepare-haddock-web.mjs", {"haddock", "haddock-assets", "components", "default"})
+        check("planner/src/Main.hs", {"planner", "planner-assets", "planner-style", "components", "default"})
+        check("planner/aihc.lock", {"planner", "planner-assets", "components", "default"})
         check("scripts/transpile.mjs", {"parser-assets", "components", "default"})
         check("scripts/transpile-haddock.mjs", {"haddock-assets", "components", "default"})
+        check("scripts/transpile-planner.mjs", {"planner-assets", "components", "default"})
+        check("scripts/externalize-wasm.mjs", {"haddock-assets", "planner-assets", "components", "default"})
 
 
 if __name__ == "__main__":

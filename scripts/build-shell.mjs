@@ -23,3 +23,24 @@ await build({ entryPoints: ['shell/app.js', 'shell/process-worker.js', 'shell/ha
   logOverride: { 'duplicate-object-key': 'silent' } });
 await copyFile('node_modules/@xterm/xterm/css/xterm.css', 'public/shell/assets/xterm.css');
 console.log('Built the browser shell and C toolchain.');
+
+// Builder inputs use immutable URLs so cached files cannot change between builds.
+const { GENERATOR } = await import('../documentation/contract.js');
+await mkdir('public/builder/assets', { recursive: true });
+await mkdir('public/builder/runtime', { recursive: true });
+const runtime = { generator: GENERATOR, modules: [] };
+const moduleNames = JSON.parse(await readFile('generated/haddock/modules.json', 'utf8'));
+for (const name of [...moduleNames.map(name => `${name}.gz`), 'core-libs.tar.gz']) {
+  const bytes = await readFile(`public/shell/haddock/${name}`);
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  const url = `/builder/runtime/${sha256}.gz`;
+  await writeFile(`public${url}`, bytes);
+  const entry = { name: name.replace(/\.gz$/, ''), sha256, url };
+  if (name === 'core-libs.tar.gz') runtime.core = entry;
+  else runtime.modules.push(entry);
+}
+await writeFile('public/builder/runtime.json', JSON.stringify(runtime));
+await build({ entryPoints: ['builder/app.js', 'builder/runner.js'], outdir: 'public/builder/assets',
+  bundle: true, format: 'esm', target: 'es2022', minify: true, legalComments: 'eof',
+  logOverride: { 'duplicate-object-key': 'silent' } });
+console.log('Built the documentation builder.');

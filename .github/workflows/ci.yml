@@ -26,7 +26,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .component-cache
-          key: components-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**', 'parser/**', 'haddock/aihc.lock', 'package.json', 'package-lock.json', 'scripts/transpile.mjs', 'scripts/transpile-haddock.mjs', 'shell/toolchain.json', 'scripts/check-nix-inputs.py') }}
+          key: components-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**', 'parser/**', 'haddock/**', 'planner/**', 'package.json', 'package-lock.json', 'scripts/transpile.mjs', 'scripts/transpile-haddock.mjs', 'scripts/transpile-planner.mjs', 'scripts/externalize-wasm.mjs', 'scripts/prepare-haddock-web.mjs', 'shell/toolchain.json', 'scripts/check-nix-inputs.py') }}
           restore-keys: components-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Import cached Nix outputs
         if: steps.components.outputs.cache-matched-key != ''
@@ -41,9 +41,9 @@ jobs:
         if: steps.components.outputs.cache-hit != 'true'
         run: |
           scripts/build-components.sh --print-build-logs
-          nix build .#parser-style --no-link
+          nix build .#parser-style .#planner-style --no-link
           rm -rf .component-cache
-          nix copy --to "file://$PWD/.component-cache" .#parser .#haddock .#parser-assets .#haddock-assets .#toolchain .#components .#parser-style
+          nix copy --to "file://$PWD/.component-cache" .#parser .#haddock .#parser-assets .#haddock-assets .#planner .#planner-assets .#planner-style .#toolchain .#components .#parser-style
           readlink -f result-components > .component-cache/store-path
       - name: Use cached components
         if: steps.components.outputs.cache-hit == 'true'
@@ -62,8 +62,9 @@ jobs:
           key: ${{ steps.components.outputs.cache-primary-key }}
       - run: npm ci
       - run: python3 -m unittest discover -s test -p '*_test.py'
-      - run: nix build .#parser-style --no-link
+      - run: nix build .#parser-style .#planner-style --no-link
       - run: npx wrangler types
+      - run: npx wrangler types --config wrangler.docs.jsonc
       - run: npm run check
       - uses: actions/upload-artifact@v4
         with:
