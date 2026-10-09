@@ -1,4 +1,4 @@
-import { html, render } from '../src/html.js';
+import { html, raw, render } from '../src/html.js';
 
 const array = value => Array.isArray(value) ? value : [];
 const text = value => typeof value === 'string' ? value : '';
@@ -41,13 +41,67 @@ export function docMarkup(doc) {
     default: return '';
   }
 }
+// These kinds have a signature that is the declaration head, for example `Array i e`.
+const HEAD_KEYWORDS = new Map([['data', 'data'], ['newtype', 'newtype'], ['class', 'class'], ['type_synonym', 'type'],
+  ['type_family', 'type family'], ['data_family', 'data family']]);
+const NAME_CHAR = /[\p{L}\p{N}_'#]/u;
+// Find the first occurrence of the name as a complete token.
+function nameIndex(signature, name) {
+  for (let index = signature.indexOf(name); index >= 0; index = signature.indexOf(name, index + 1)) {
+    if (!NAME_CHAR.test(signature[index - 1] || ' ') && !NAME_CHAR.test(signature[index + name.length] || ' ')) return index;
+  }
+  return -1;
+}
+// Keep arrows and other operators together when a long signature wraps.
+const source = value => value.split(/(\S+)/).map(part => /^\S+$/.test(part) ? html`<span class="doc-token">${part}</span>` : part);
+// Show a declaration as one line of Haskell source, for example `bounds :: Array i e -> (i, i)`.
+function signatureLine(decl, anchor) {
+  const name = text(decl.name);
+  const signature = text(decl.signature);
+  const keyword = HEAD_KEYWORDS.get(decl.kind);
+  if (keyword) {
+    const index = signature ? nameIndex(signature, name) : -1;
+    const link = html`<a class="doc-name" href="#${anchor}">${name}</a>`;
+    if (index < 0) return html`<span class="doc-keyword">${keyword}</span> ${link}${signature && signature !== name ? html` ${source(signature)}` : ''}`;
+    return html`<span class="doc-keyword">${keyword}</span> ${source(signature.slice(0, index))}${link}${source(signature.slice(index + name.length))}`;
+  }
+  const shown = /^[\p{L}_]/u.test(name) ? name : `(${name})`;
+  return html`<a class="doc-name" href="#${anchor}">${shown}</a>${signature ? html` <span class="doc-keyword">::</span> ${source(signature)}` : ''}`;
+}
+// Split a type at its top-level arrows after the context, so `Ix i => (i, i) -> [e] -> a` gives `(i, i)`, `[e]`, and `a`.
+function argumentTypes(signature) {
+  const type = signature.replace(/^\s*forall\b[^.]*\.\s*/, '');
+  const parts = [];
+  let depth = 0, start = 0;
+  for (let index = 0; index < type.length; index++) {
+    const char = type[index];
+    if ('([{'.includes(char)) depth++;
+    else if (')]}'.includes(char)) depth--;
+    else if (depth === 0 && (type.startsWith('->', index) || type.startsWith('=>', index))
+      && !/[!#$%&*+./<=>?@\\^|~:-]/.test(type[index - 1] || ' ') && !/[!#$%&*+./<=>?@\\^|~:-]/.test(type[index + 2] || ' ')) {
+      if (char === '=') parts.length = 0;
+      else parts.push(type.slice(start, index).trim());
+      start = index + 2;
+      index++;
+    }
+  }
+  parts.push(type.slice(start).trim());
+  return parts;
+}
+function argumentList(decl) {
+  const entries = Object.entries(decl.arg_docs || {}).sort(([a], [b]) => Number(a) - Number(b));
+  if (!entries.length) return '';
+  const types = argumentTypes(text(decl.signature));
+  return html`<dl class="doc-arguments">${entries.map(([index, doc]) => html`<div><dt>${types[Number(index)]
+    ? html`<code>${types[Number(index)]}</code>` : `Argument ${Number(index) + 1}`}</dt><dd>${docMarkup(doc?.document)}</dd></div>`)}</dl>`;
+}
 function declaration(decl, children = decl.subordinates) {
-  return html`<article class="doc-declaration" id="${id(decl.namespace, decl.name)}">
-    <h3><a href="#${id(decl.namespace, decl.name)}"><code>${decl.name}</code></a><span class="doc-kind">${text(decl.kind)}</span></h3>
-    ${decl.signature ? html`<pre><code>${decl.signature}</code></pre>` : html`<p class="muted">No type signature is available.</p>`}
+  const anchor = id(decl.namespace, decl.name);
+  return html`<article class="doc-declaration" id="${anchor}">
+    <h3 class="doc-signature"><code>${signatureLine(decl, anchor)}</code></h3>
     ${decl.warning ? html`<p class="doc-warning">${text(decl.warning)}</p>` : ''}
     <div class="prose">${docMarkup(decl.doc?.document)}</div>
-    ${Object.entries(decl.arg_docs || {}).map(([index, doc]) => html`<div class="doc-argument"><span>Argument ${index}</span>${docMarkup(doc?.document)}</div>`)}
+    ${argumentList(decl)}
     ${array(children).map(child => declaration(child))}</article>`;
 }
 // A section can include text after its first line. Keep that text outside the heading.
@@ -64,18 +118,69 @@ function splitSection(doc) {
   }
   return [doc, null];
 }
+// Module header fields. A generator can leave these fields in the first paragraph of the description.
+const HEADER_FIELDS = new Set(['module', 'description', 'copyright', 'license', 'maintainer', 'stability', 'portability']);
+function firstBlock(doc) {
+  if (doc?.tag !== 'DocAppend') return [doc, null];
+  const [first, rest] = firstBlock(doc.first);
+  return [first, rest ? { ...doc, first: rest } : doc.second];
+}
+function headerFields(doc) {
+  if (doc?.tag !== 'DocParagraph') return null;
+  const fields = {};
+  let last = null;
+  for (const line of plain(doc.document).split('\n')) {
+    const match = /^\s*([A-Za-z]+)\s*:\s*(.*)$/.exec(line);
+    const key = match?.[1].toLowerCase();
+    if (HEADER_FIELDS.has(key)) { fields[key] = match[2].trim(); last = key; }
+    else if (last && line.trim()) fields[last] += ` ${line.trim()}`;
+    else if (line.trim()) return null;
+  }
+  return last ? fields : null;
+}
+function moduleInfo(mod) {
+  const [first, rest] = firstBlock(mod.description?.document);
+  const fields = headerFields(first);
+  const info = { ...fields };
+  for (const [key, value] of Object.entries(mod.info || {})) if (typeof value === 'string' && value.trim()) info[key] = value.trim();
+  return { info, description: fields ? rest : mod.description?.document };
+}
+const INFO_LABELS = [['maintainer', 'Maintainer'], ['portability', 'Portability'], ['copyright', 'Copyright'], ['license', 'License']];
+function slug(value) {
+  return value.toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'section';
+}
+function reexport(packageId, moduleName, decls, emitted) {
+  const shown = array(decls).filter(decl => {
+    const key = `${decl.namespace}:${decl.name}`;
+    if (emitted.has(key)) return false;
+    emitted.add(key);
+    return true;
+  });
+  const label = html`<span class="doc-keyword">module</span> <code>${text(moduleName)}</code>${packageId ? html` <span class="muted">${text(packageId)}</span>` : ''}`;
+  if (!shown.length) return html`<p class="doc-reexport">${label}</p>`;
+  return html`<details class="doc-reexport"><summary>${label} <span class="muted">· ${shown.length} ${shown.length === 1 ? 'declaration' : 'declarations'}</span></summary>${shown.map(decl => declaration(decl))}</details>`;
+}
+// Instance lists open by default only when they are short.
+const OPEN_INSTANCES = 8;
 // Respect explicit export lists. Hidden declarations remain in the JSON model.
-export function renderModule(mod) {
+export function renderModule(mod, { title = 'h2' } = {}) {
   let content;
   const declarations = new Map(mod.decls.map(decl => [`${decl.namespace}:${decl.name}`, decl]));
   const emitted = new Set();
+  const sections = [];
+  const sectionIds = new Set();
   const exports = mod.resolved_exports ?? mod.exports;
   if (exports === null) content = mod.decls.map(decl => declaration(decl));
   else content = exports.map(item => {
     const values = array(item?.contents);
     if (item?.tag === 'section_item') {
-      const [title, body] = splitSection(values[1]);
-      return html`<h2>${docMarkup(title)}</h2>${body ? html`<div class="prose">${docMarkup(body)}</div>` : ''}`;
+      const [heading, body] = splitSection(values[1]);
+      const base = `section-${slug(plain(heading))}`;
+      let anchor = base;
+      for (let count = 2; sectionIds.has(anchor); count++) anchor = `${base}-${count}`;
+      sectionIds.add(anchor);
+      sections.push({ anchor, level: Number(values[0]) || 1, title: plain(heading) });
+      return html`<h2 id="${anchor}">${docMarkup(heading)}</h2>${body ? html`<div class="prose">${docMarkup(body)}</div>` : ''}`;
     }
     if (item?.tag === 'doc_item') return html`<div class="prose">${docMarkup(values[1])}</div>`;
     if (item?.tag === 'resolved_item') {
@@ -85,14 +190,8 @@ export function renderModule(mod) {
       emitted.add(key);
       return declaration(decl);
     }
-    if (item?.tag === 'resolved_module_item') return html`<p>Module export: <code>${text(values[1])}</code> (${text(values[0])}).</p>
-      ${array(values[2]).map(decl => {
-        const key = `${decl.namespace}:${decl.name}`;
-        if (emitted.has(key)) return '';
-        emitted.add(key);
-        return declaration(decl);
-      })}`;
-    if (item?.tag === 'module_item') return html`<p>Module export: <code>${text(item.contents)}</code>. Resolved links are not available.</p>`;
+    if (item?.tag === 'resolved_module_item') return reexport(values[0], values[1], values[2], emitted);
+    if (item?.tag === 'module_item') return reexport('', item.contents, [], emitted);
     if (item?.tag !== 'decl_item') return '';
     const key = `${text(values[1])}:${text(values[0])}`;
     if (emitted.has(key)) return '';
@@ -105,11 +204,23 @@ export function renderModule(mod) {
       : selection?.tag === 'some_subordinates' ? decl.subordinates.filter(child => selectedNames.has(child.name)) : [];
     return declaration(decl, children);
   });
-  return html`<section class="doc-module"><h2>${mod.name}</h2><div class="prose">${docMarkup(mod.description?.document)}</div>
+  const { info, description } = moduleInfo(mod);
+  const instances = array(mod.instances);
+  const contents = [...sections, ...(instances.length ? [{ anchor: 'instances', level: 1, title: 'Instances' }] : [])];
+  const facts = INFO_LABELS.filter(([key]) => info[key]);
+  return html`<section class="doc-module${contents.length > 1 ? ' has-toc' : ''}"><header class="doc-module-head">
+    <div class="doc-title-row">${title === 'h1' ? html`<h1 class="doc-title">${mod.name}</h1>` : html`<h2>${mod.name}</h2>`}${info.stability ? html`<span class="doc-stability" title="Stability">${info.stability}</span>` : ''}</div>
+    ${info.description ? html`<p class="doc-synopsis">${info.description}</p>` : ''}
+    <div class="prose">${docMarkup(description)}</div>
     ${mod.warning ? html`<p class="doc-warning">${text(mod.warning)}</p>` : ''}
     ${mod.diagnostics.length ? html`<details class="doc-diagnostics"><summary>${mod.diagnostics.length} generation diagnostics</summary><ul>${mod.diagnostics.map(message => html`<li>${message}</li>`)}</ul></details>` : ''}
-    ${content}
-    ${mod.instances.length ? html`<h3>Instances</h3>${mod.instances.map(item => html`<pre><code>${text(item?.head)}</code></pre><div class="prose">${docMarkup(item?.doc?.document)}</div>`)}` : ''}
+    </header>
+    ${contents.length > 1 ? html`<nav class="doc-toc" aria-label="Contents"><h2>Contents</h2><ol>${contents.map(item => html`<li class="level-${Math.min(item.level, 3)}"><a href="#${item.anchor}">${item.title}</a></li>`)}</ol></nav>` : ''}
+    <div class="doc-module-body">${content}
+    ${instances.length ? html`<details class="doc-instances" id="instances"${instances.length <= OPEN_INSTANCES ? raw(' open') : ''}><summary><h2>Instances</h2> <span class="muted">${instances.length}</span></summary>
+      <ul>${instances.map(item => html`<li><code><span class="doc-keyword">instance</span> ${source(text(item?.head))}</code>${item?.doc ? html`<div class="prose">${docMarkup(item.doc.document)}</div>` : ''}</li>`)}</ul></details>` : ''}
+    ${facts.length ? html`<dl class="doc-info">${facts.map(([key, label]) => html`<div><dt>${label}</dt><dd>${info[key]}</dd></div>`)}</dl>` : ''}
+    </div>
   </section>`;
 }
 export function previewHtml(model, moduleName) {
