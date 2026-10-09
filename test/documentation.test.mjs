@@ -41,7 +41,7 @@ test('The documentation renderer escapes markup and honors export lists.', async
   const model = fixtureModel(plan);
   model.modules[0].resolved_exports.unshift({ tag: 'section_item', contents: [1, { tag: 'DocAppend',
     first: { tag: 'DocString', string: 'Section title\n\nSection text.' }, second: { tag: 'DocString', string: ' More text.' } }] });
-  assert.match(previewHtml(model), /<h2>Section title<\/h2><div class="prose">\nSection text\. More text\.<\/div>/);
+  assert.match(previewHtml(model), /<h2 id="section-section-title">Section title<\/h2><div class="prose">\nSection text\. More text\.<\/div>/);
   model.modules[0].resolved_exports.push(...Array(1000).fill(model.modules[0].resolved_exports[1]));
   assert.equal((previewHtml(model).match(/id="decl-value-greet"/g) || []).length, 1);
   model.modules[0].decls[0].name = '\ud800';

@@ -118,6 +118,21 @@ Continue at step 3.
 
 The development command starts the site Worker and the documentation Workflow Worker.
 
+### Local documentation preview
+
+Use this procedure to change the documentation pages on macOS without the component builds.
+
+1. Run `node scripts/seed-docs.mjs RESULT_ID`.
+2. Start the site Worker with `npx wrangler dev --config wrangler.jsonc`.
+3. Open `http://localhost:8787/docs/RESULT_ID`.
+
+The script copies a published result and its plan from `hackage.aihc.app` into the local D1 and R2 stores.
+Without a result identifier, it copies one `array-0.5.8.0` result.
+Add `--import` while the Worker runs to also import the package release.
+Wrangler reloads the Worker when `src/`, `documentation/`, or `public/` changes.
+Pages have a one-minute browser cache, so reload the page after a change.
+`.claude/launch.json` starts the same Worker for the Claude Code preview.
+
 The lock files `parser/aihc.lock`, `haddock/aihc.lock`, and `planner/aihc.lock` fix dependency versions and Cabal revisions.
 The tests use Cabal fixtures through the real Wasm parser.
 Worker tests use local D1 and R2 and a fixture source for Hackage requests.

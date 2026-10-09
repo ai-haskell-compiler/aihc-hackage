@@ -38,21 +38,65 @@ export function builderPage({ name = '', version = '' } = {}) {
     </section>` });
 }
 
+// Build a module tree. A node without its own module and with one child joins that child, so `Data` and `Array` become `Data.Array`.
+function moduleTree(names) {
+  const root = { children: new Map() };
+  for (const name of names) {
+    let node = root;
+    for (const part of name.split('.')) {
+      if (!node.children.has(part)) node.children.set(part, { label: part, children: new Map() });
+      node = node.children.get(part);
+    }
+    node.module = name;
+  }
+  const compress = node => {
+    let children = [...node.children.values()].map(compress);
+    if (!node.module && children.length === 1 && node.label) {
+      const [child] = children;
+      return { ...child, label: `${node.label}.${child.label}` };
+    }
+    return { ...node, children };
+  };
+  return compress(root).children;
+}
+function containsModule(node, name) {
+  return node.module === name || node.children.some(child => containsModule(child, name));
+}
+function moduleNodes(nodes, base, selected, expandAll, nested) {
+  return html`<ul>${nodes.map(node => {
+    const label = nested ? `.${node.label}` : node.label;
+    const entry = node.module
+      ? html`<a href="${base}/${encodeURIComponent(node.module)}" title="${node.module}"${node.module === selected ? raw(' aria-current="page"') : ''}>${label}</a>`
+      : html`<span title="${label}">${label}</span>`;
+    if (!node.children.length) return html`<li>${entry}</li>`;
+    const open = expandAll || containsModule(node, selected);
+    return html`<li><details${open ? raw(' open') : ''}><summary>${entry}</summary>${moduleNodes(node.children, base, selected, expandAll, true)}</details></li>`;
+  })}</ul>`;
+}
+// Small packages show the complete tree. Large packages open only the branch of the selected module.
+const EXPAND_LIMIT = 30;
+
 export function documentationPage(result, selectedName) {
   const modules = result.model.modules.filter(mod => mod.exposed);
   const selected = selectedName ? modules.find(mod => mod.name === selectedName) : modules[0];
   if (selectedName && !selected) return null;
   const base = `/docs/${result.id}`;
+  const verified = result.provenance === 'verified';
+  const navigation = modules.length > 1
+    ? html`<details class="doc-nav"><summary>Modules <span class="muted">${modules.length}</span></summary>
+      <nav class="doc-modules" aria-label="Modules">${moduleNodes(moduleTree(modules.map(mod => mod.name)), base, selected?.name, modules.length <= EXPAND_LIMIT, false)}</nav></details>`
+    : '';
   return layout({ title: `${selected?.name || result.name} · ${result.name}-${result.version}`, page: 'documentation',
-    noindex: result.provenance !== 'verified', description: `API documentation for ${result.name}-${result.version}.`,
-    content: html`<div class="package-head"><a class="back" href="${packageHref(result.name, result.version, 'api')}">← Package details</a>
-      <h1 class="package-title">${result.name}<span class="badge">${result.version}</span></h1>
-      <p class="builder-note">${result.provenance === 'verified' ? 'Verified build. The service reproduced this documentation.' : 'Community contribution. The service has not verified this documentation.'}
-      ${result.diagnostics ? ` The generator reported ${result.diagnostics} diagnostics.` : ''}</p>
-      <p class="muted">Target: Linux on x86-64. Some inferred types and resolved links are not available.</p></div>
-      <div class="documentation-layout"><nav class="doc-modules" aria-label="Modules"><h2>Modules</h2>${modules.map(mod => html`<a href="${base}/${encodeURIComponent(mod.name)}"${mod === selected ? raw(' aria-current="page"') : ''}>${mod.name}</a>`)}</nav>
-      <div>${selected ? renderModule(selected) : html`<p>This result has no exposed modules.</p>`}</div></div>
-      <details class="raw"><summary>Build record and source files</summary><p>Generator: <code>${result.plan.generator}</code></p><p>Metadata snapshot: <code>${result.plan.metadataSha256}</code></p>
+    noindex: !verified, description: `API documentation for ${result.name}-${result.version}.`,
+    content: html`<div class="doc-bar"><nav class="doc-crumbs" aria-label="Breadcrumb"><a href="${packageHref(result.name, result.version, 'api')}">${result.name}</a><span class="badge">${result.version}</span>
+        ${selected ? html`<span class="doc-crumb-separator" aria-hidden="true">/</span><span class="doc-crumb-module">${selected.name}</span>` : ''}</nav>
+      <a class="doc-provenance${verified ? ' verified' : ''}" href="#build-record" title="${verified ? 'The service reproduced this documentation.' : 'The service has not verified this documentation.'}">${verified ? 'Verified' : 'Community'}</a></div>
+      <div class="documentation-layout${navigation ? '' : ' single'}">${navigation}
+      <div class="doc-content">${selected ? renderModule(selected, { title: 'h1' }) : html`<p>This result has no exposed modules.</p>`}</div></div>
+      <details class="raw" id="build-record"><summary>Build record and source files</summary>
+      <p>${verified ? 'Verified build. The service reproduced this documentation.' : 'Community contribution. The service has not verified this documentation.'}${result.diagnostics ? ` The generator reported ${result.diagnostics} diagnostics.` : ''}</p>
+      <p>Target: Linux on x86-64. Some inferred types and resolved links are not available.</p>
+      <p>Generator: <code>${result.plan.generator}</code></p><p>Metadata snapshot: <code>${result.plan.metadataSha256}</code></p>
       <p><a href="/api/docs/plans/${result.plan_id}">Open the dependency plan</a> · <a href="/api/docs/results/${result.id}/model">Download the documentation model</a></p>
       <ul>${result.plan.packages.map(pkg => html`<li>${pkg.name}-${pkg.version} · ${pkg.source === 'core' ? 'Core library' : `Cabal revision ${pkg.revision}`}
         · <a href="/api/docs/objects/${pkg.cabalSha256}">Cabal file</a>${pkg.source === 'hackage' ? html` · <a href="/api/docs/objects/${pkg.archiveSha256}">Source archive</a>` : ''}</li>`)}</ul></details>` });
