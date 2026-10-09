@@ -104,30 +104,73 @@ A line that contains only a period starts a new paragraph.
 
 ## Development
 
-Use Node.js 24, Nix, Git, and Cabal.
+Use Node.js 24, Nix, Git, and Just.
+Build the components on Linux with an x86-64 or ARM64 processor.
+On macOS, download the `worker-build` artifact from a successful continuous integration (CI) run into the checkout.
+Run `npm ci`.
+Continue at step 3.
 
 1. Run `npm ci`.
-2. Run `scripts/build-parser.sh`.
-3. Run `scripts/build-haddock.sh`.
-4. Run `scripts/build-planner.sh`.
-5. Run `npm run build`.
-6. Run `just check`.
-7. Run `npx wrangler d1 migrations apply DB --local`.
-8. Run `npm run dev`.
+2. Run `just build`.
+3. Run `just check`.
+4. Run `npx wrangler d1 migrations apply DB --local`.
+5. Run `npm run dev`.
 
 The development command starts the site Worker and the documentation Workflow Worker.
 
-Set `AIHC_ROOT` or `AIHC_HADDOCK_ROOT` to use an existing compiler checkout at the required revision.
-The build scripts otherwise create checkouts in `.compiler` and `.compiler-haddock`.
-The lock files `parser/aihc.lock` and `haddock/aihc.lock` fix dependency versions and Cabal revisions.
+The lock files `parser/aihc.lock`, `haddock/aihc.lock`, and `planner/aihc.lock` fix dependency versions and Cabal revisions.
 The tests use Cabal fixtures through the real Wasm parser.
 Worker tests use local D1 and R2 and a fixture source for Hackage requests.
+
+### Nix builds
+
+A Nix derivation specifies build inputs and outputs.
+`flake.lock` fixes both compiler revisions and their Nix dependencies.
+The `parser`, `haddock`, and `planner` derivations compile the Wasm components separately.
+The `parser-assets`, `haddock-assets`, and `planner-assets` derivations produce JavaScript, core Wasm modules, and browser archives.
+The `toolchain` derivation supplies the compressed browser C toolchain.
+`shell/toolchain.json` fixes its revision and SHA-256 digests.
+
+The `components` derivation collects these outputs.
+The `parser-style` and `planner-style` derivations check Haskell formatting and lint rules.
+CI also caches this check, so unchanged parser sources do not need the lint tools again.
+
+Run `nix build .#components` to build all component assets.
+Run `scripts/build-components.sh` to also copy these assets into the checkout.
+`just build` uses this script, then builds the browser shell.
+The parser and Haddock build scripts select their separate asset derivations.
+Repeated commands use the existing Nix store outputs.
+Changes to site pages, styles, or Worker code do not change these derivations.
+
+`nix/sources.json` records hashes for every locked Hackage archive and Cabal revision.
+Nix downloads these files before compilation.
+`nix/hackage-cache.py` prepares an index that contains only the locked Cabal revisions.
+The compiler uses this index and the downloaded sources with `--locked`.
+The CI build sandbox prevents network access during compilation.
+The build does not run `cabal update` or download the full Hackage index.
+
+Update compiler inputs in `flake.lock` on Linux.
+After a dependency lock change, run `python3 scripts/update-nix-sources.py`.
+Review the changed hashes with the changed lock entries.
+After an npm dependency change, update `npmDepsHash` in `flake.nix` with the result from `prefetch-npm-deps package-lock.json`.
+Run `python3 -m unittest discover -s test -p '*_test.py'` with Python 3.12 or later to check dependency coverage and index offsets.
 
 ## Deployment
 
 The `main` branch requires a PR and the `check` status.
 The rule applies to administrators.
 Each push to `main` runs checks and deploys the checked build.
+
+GitHub Actions stores the Nix component outputs in a binary cache.
+Its key includes the compiler locks, component sources, dependency hashes, and asset build scripts.
+An exact cache match restores the outputs without compiler evaluation or compilation.
+A partial match lets Nix use unchanged component outputs.
+When the cache key changes, CI restores the larger compiler dependency cache.
+Nix then builds only outputs that are absent from the restored store.
+
+The check job uploads the generated modules, parser component, and complete static asset directory.
+The deployment job downloads this artifact and runs `npm run deploy:built`.
+It does not rebuild the shell or download the browser toolchain.
 The deployment applies D1 migrations before it deploys both Workers and static assets.
 The workflow uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 The account ID is not confidential and can also come from the Worker configuration.
@@ -145,7 +188,9 @@ WASI is the WebAssembly System Interface.
 The page uses the browser WebAssembly engine and xterm.js terminal.
 The shell source is in `shell/`.
 Run `npm run build:shell` to build the static files.
-The normal build, check, and deployment commands also build these files.
+The normal build and check commands also build these files.
+The local deployment command builds the shell before deployment.
+CI deploys the static files from the check job.
 
 Each WASI Preview 1 command runs in a separate Web Worker.
 A Web Worker runs JavaScript on a separate browser thread.
@@ -191,12 +236,11 @@ The tests compile C, execute the output in Workers, and check pipes, background 
 ### aihc-haddock
 
 The `aihc-haddock` command is a WASI P3 component, not a Preview 1 module.
-`scripts/build-haddock.sh` compiles it with `--target wasm32-wasip3` and writes `haddock.wasm`.
-The script uses its own compiler checkout in `.compiler-haddock` and the lock file `haddock/aihc.lock`.
-It builds with `aihc-haddock -hackage`, so the component does not download the Hackage index.
+`scripts/build-haddock.sh` gets the Haddock assets from Nix and copies `haddock.wasm` into the checkout.
+The Nix derivation uses `haddock/aihc.lock` and the compiler revision in `flake.lock`.
+It compiles with `--target wasm32-wasip3` and `aihc-haddock -hackage`, so the component does not download the Hackage index.
 The index is about 140 MB, which is too large for a browser.
-Build on a case-sensitive filesystem.
-The default macOS filesystem is not case-sensitive, and the compiler build fails there.
+The component derivations support Linux, where the build filesystem is case-sensitive.
 
 `scripts/transpile-haddock.mjs` uses `jco-transpile` to make JavaScript and core Wasm modules.
 It writes gzip files to `public/shell/haddock`.
@@ -257,7 +301,7 @@ LP64 means that pointers and C `long` values use 64 bits.
 The browser platform does not change the documented target.
 
 `haddock/web/Aihc/Haddock/Web.hs` adds the `web-build PLAN JSON HOOGLE` command to the pinned generator.
-`scripts/prepare-haddock-web.mjs` installs this adapter in the compiler checkout before a build.
+`scripts/prepare-haddock-web.mjs` installs this adapter in a copy of the pinned Haddock source before a Nix build.
 The adapter selects source files with the flags and target from the plan.
 It does not run the dependency solver.
 The original shell commands remain available.
@@ -346,11 +390,11 @@ No `DOC_RUNNER_TOKEN` or planner service environment is required.
 Cloudflare account credentials remain necessary for deployment through Wrangler or CI.
 Visitors receive only the limited upload ticket tokens.
 
-The build uses Node.js 24, Nix, and the pinned compiler checkout.
+The build uses Node.js 24, Nix, and the pinned compiler source.
 These are development tools. They are not runtime services.
-`scripts/build-planner.sh` compiles the solver to Wasm.
+`scripts/build-planner.sh` builds and copies the Nix planner assets.
 `scripts/transpile-planner.mjs` produces the JavaScript bindings and static Wasm imports.
-The build also copies the core Cabal files from the pinned compiler checkout.
+The build also copies the core Cabal files from the pinned compiler source.
 
 The transpiler emits small suspension adapters as inline Wasm byte arrays.
 `scripts/externalize-wasm.mjs` extracts those arrays into modules for both the planner and Haddock.
@@ -367,5 +411,4 @@ The browser component test also checks a selected flag, a revised Cabal file, an
 `npm run check:planner` runs the Wasm solver test and checks Haskell source with Ormolu and HLint.
 No native planner process participates in these tests.
 
-On macOS, use a case-sensitive filesystem for the Wasm build cache and output intermediates.
-Set `XDG_CACHE_HOME`, `AIHC_HADDOCK_BUILD_ROOT`, and `AIHC_PLANNER_BUILD_ROOT` to directories on that filesystem.
+On macOS, use the CI artifacts as described in the development steps.

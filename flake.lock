@@ -1,0 +1,86 @@
+{
+  "nodes": {
+    "haddockCompiler": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1791273542,
+        "narHash": "sha256-N9S8vyzOMbmhN/Ob13HQsiWGkzKsDr9lwApQ6HgUBi0=",
+        "owner": "ai-haskell-compiler",
+        "repo": "aihc",
+        "rev": "7b0c849328ad36de9135bcc215c706187d6beb0c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ai-haskell-compiler",
+        "repo": "aihc",
+        "rev": "7b0c849328ad36de9135bcc215c706187d6beb0c",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1784555310,
+        "narHash": "sha256-/FCliTPgiuV1owejZFNx3Ch9irdvkOfOFl+HHZ+DrtM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "421eebfd0ec7bccd4abe826ce62d7e6e83129493",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1784555310,
+        "narHash": "sha256-/FCliTPgiuV1owejZFNx3Ch9irdvkOfOFl+HHZ+DrtM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "421eebfd0ec7bccd4abe826ce62d7e6e83129493",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "parserCompiler": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1791049488,
+        "narHash": "sha256-t4gFuAu/KIqdwNATMFLuKSc3e88Ss5NcPETG9mzg78E=",
+        "owner": "ai-haskell-compiler",
+        "repo": "aihc",
+        "rev": "bf991343a626e758a7d6d616770824fb55aaac92",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ai-haskell-compiler",
+        "repo": "aihc",
+        "rev": "bf991343a626e758a7d6d616770824fb55aaac92",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "haddockCompiler": "haddockCompiler",
+        "nixpkgs": [
+          "haddockCompiler",
+          "nixpkgs"
+        ],
+        "parserCompiler": "parserCompiler"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

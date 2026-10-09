@@ -1,0 +1,290 @@
+{
+  "OneTuple-0.4.3-r0": {
+    "cabal": "sha256-D1YgkzhQp4uEnAmIy/wiiKsydLiQhL9mgfUUFD0/gio=",
+    "tarball": "sha256-ZD0fSOY0gKxtA6jwq1l21mUnybQrH8qB0b83PRAJnGs="
+  },
+  "QuickCheck-2.18.0.0-r0": {
+    "cabal": "sha256-jakksQCcnxNS/zZ6sDNF42eVlYx7tsFWqkYOMQB1Pf0=",
+    "tarball": "sha256-/YRirTscO7kEZexYE1bPUhRnPBAV1z8o8uej3xebvFU="
+  },
+  "StateVar-1.2.2-r0": {
+    "cabal": "sha256-PAIsAEhf4WXjCA1dprPKnJsC9ixd7rxYTRs9EwnOZz4=",
+    "tarball": "sha256-Xks52jlWVqWYJ7AoBQiq/ccDNXmLUOXW/VJZYCYlGCU="
+  },
+  "aeson-2.2.5.1-r0": {
+    "cabal": "sha256-qJ/VS4AjUev1emvkUdslwWfDzLNVg7Sp0rtU19HEPeI=",
+    "tarball": "sha256-6oLWUMC72Id9vxOgO5uq475+1KZfToz+W06stPW+rnU="
+  },
+  "aeson-pretty-0.8.11-r0": {
+    "cabal": "sha256-zdrl7LvFTXEvX+NUIXjN5vOAFljwkHozS9JmD0odvjU=",
+    "tarball": "sha256-0lzlqo5EfWTc5bch38P5Vjq1NMtDiOlZZFvPA+I7FW4="
+  },
+  "aihc-cabal-syntax-2.0.0.0-r0": {
+    "cabal": "sha256-AlNXz9pNv6njWzgTMEs/qV95GrjIPnVSqviYcrrr7X8=",
+    "tarball": "sha256-5LSrgFTuVCkTsnH3JNi2T/pWhb1qjIl4dsHZh4VQFX0="
+  },
+  "aihc-cpp-2.0.0.0-r0": {
+    "cabal": "sha256-cLf4U4zYFkdbQG6kX6dM6hE2l+H2EL4DGBbsEBtV+VA=",
+    "tarball": "sha256-aCzqkDWQ6Suu539nxrrOrWOOF1Q/60wYtANBRtB1H38="
+  },
+  "aihc-parser-4.0.0.0-r0": {
+    "cabal": "sha256-A6UPzx5to0BD5URop4raotwS1qYfiHYvJN+GMegtRGY=",
+    "tarball": "sha256-BNfk3sku0uKK4CE1ddZvV+vykqlo6qc7CDFmmHSCYo4="
+  },
+  "ansi-terminal-1.1.5-r0": {
+    "cabal": "sha256-QI2SMuUwTv6tcY+WE41tfrLaYIxhIcXA3GpxqDOxQyA=",
+    "tarball": "sha256-nPCDzvLiuoikJfEyyKgr+pMetLDDgjKyAX+PzqLiMHM="
+  },
+  "ansi-terminal-types-1.1.3-r0": {
+    "cabal": "sha256-HWBh7OrzWp7SabgRd91MjGBAOkmVJvf2j9/6TseELn8=",
+    "tarball": "sha256-n8nOIVfxiJvZmk0iyfHGRYlZC+D3l8Pv5xyPoXoRpok="
+  },
+  "array-0.5.8.0-r2": {
+    "cabal": "sha256-zLz7SYAd4SjK+EBLy62ZzVXMsbZZB7tTkQ2j1h7Aw5s=",
+    "tarball": "sha256-OgIt1qxgjWePQE2wtE/JhJxn3qGXAus7gvNYdE9l5ms="
+  },
+  "assoc-1.1.1-r2": {
+    "cabal": "sha256-dmsQQO2lJVv88Q4amFnAbQ7WrQ4qyH7ZFbsDVXTRCuQ=",
+    "tarball": "sha256-IxFJt/7wn13ZWvUSKGFeOyltvQ+q3soFPgZEpLE7D/Y="
+  },
+  "base-compat-0.15.0-r0": {
+    "cabal": "sha256-pNMiYDRJ5aQiJenfzSNke0uaBQiTmJp//dwLMzUe13U=",
+    "tarball": "sha256-WapJ13eaIKgIkkaQWDZTwr37DlS1Fi34DfWoFjKCRTE="
+  },
+  "base-orphans-0.9.4-r0": {
+    "cabal": "sha256-AB8rMJS3obAOn9XcxRmmK4sUehdUv1UPpCYB/4aOK2U=",
+    "tarball": "sha256-CMwoOjE1D3vSiypdMa9pPuM38lk9PnIimZty3UlUxys="
+  },
+  "bifunctors-5.6.3-r1": {
+    "cabal": "sha256-WPHWbbce2d1wZI6soaCYayk1Szpptb/XKc4aiWdmRm4=",
+    "tarball": "sha256-rXo1fwIvTHgMUFBA1z8cBqT9aXtKC6thI7vXO1XYEVw="
+  },
+  "binary-0.8.9.3-r0": {
+    "cabal": "sha256-iwPH/Vp/aAMoD7qH441TS+sdyS/sl13lvTYgBjOZbvI=",
+    "tarball": "sha256-l3vIAPsiyFssJX70jJpyNlgehZ3HbH5rd0P2rVVke+8="
+  },
+  "bytestring-0.12.2.0-r1": {
+    "cabal": "sha256-pJLhYERZn9DO/FoHipMmiPmU/q2DHql2+5My27lEWxk=",
+    "tarball": "sha256-Ltoac4P8LboLLZafoAMg+/TUGKLhsgzL4KQjeV2A+6M="
+  },
+  "case-insensitive-1.2.1.0-r0": {
+    "cabal": "sha256-nf0xcfx2mM+Nkxcn0686eziRNbWD5Gta2sH50gJv/2E=",
+    "tarball": "sha256-KW3BfgxfPfs9gs7YPkycRMM47N50myeLbq5RLx0E5AY="
+  },
+  "character-ps-0.1-r0": {
+    "cabal": "sha256-s47RwHrknnRh5Eyh0Aycok0dywCEJMzZGZFvkv1I2f4=",
+    "tarball": "sha256-It5x/eOLI20+kWioMrXh510ftPQChme990eztMjBUpw="
+  },
+  "colour-2.3.7-r0": {
+    "cabal": "sha256-YT3I1fblG6vlc5inQquNXClk+pi3c/O/bmpyt+h/HG4=",
+    "tarball": "sha256-HzsQVWdavk4zYoAMyb96ubkt/fIaH2yCslJhEnC+loA="
+  },
+  "comonad-5.0.10-r0": {
+    "cabal": "sha256-6GBuAQ4wb0EBkCbpSwZ2mTwXUmDR2JCORRiysGpAJys=",
+    "tarball": "sha256-6XOd8r9ZRJWAYqTqc73jvzXAh5zuCUTt9/Bb6/mT+cE="
+  },
+  "containers-0.8-r0": {
+    "cabal": "sha256-3dXX7oav46YYU8g1FL4WeEnj5qfywZGQvu3/KWjjvoI=",
+    "tarball": "sha256-scESf/V7b4RNCzDOpUpiwByhRqSe1JU0hb4a84mpS9g="
+  },
+  "contravariant-1.5.6-r0": {
+    "cabal": "sha256-KI8dPm+zrc+fNvKP+hiWc/LxMDgSKW37JSNHitMd2eI=",
+    "tarball": "sha256-ZfMmA1TuX9Hyx//FTP+Z0it5TCVPBTc0l5rTeCDm7+M="
+  },
+  "cryptohash-sha256-0.11.102.1-r6": {
+    "cabal": "sha256-Dp3izM4mHnpbAn6EL29H9Q6w5gWaDemKVHn3WqgWQQc=",
+    "tarball": "sha256-c6fccWOHGoCDdJUDmgmZZ7EfXE/nChGCd4QvenE8a/Y="
+  },
+  "data-fix-0.3.4-r2": {
+    "cabal": "sha256-IANgxJzIHPi4u99Jr9Su4D//0J0zlbCAp+fGX88B0xM=",
+    "tarball": "sha256-jfBS0YwEernpIAU2qHmbWvOZfr7Luwkac4S2voQWqzc="
+  },
+  "deepseq-1.5.2.0-r0": {
+    "cabal": "sha256-OJllo+HvhbfrUaoZ6GIlYOBKXXSNt4zSHimHNVK9VoQ=",
+    "tarball": "sha256-CdeADX9FCFt8AIOi1G6kVOqao9dE2LvIuLG9OOwM++U="
+  },
+  "directory-1.3.11.0-r0": {
+    "cabal": "sha256-I0bE8K8FxO1V53VD6Usm8bglI+/STamGvdSKj4qExaA=",
+    "tarball": "sha256-GCqTvrQbM9bakxPZ7v5cKII+GHnWjaXFStfKYzHVoow="
+  },
+  "distributive-0.6.3-r0": {
+    "cabal": "sha256-nex81NxJMl9VGy8r8gBM/iRUshHliCJlzIeIDUOCsfg=",
+    "tarball": "sha256-rusCiiPbn5sHPiSmvXZrebnVjCtAewa/MylsJ+kmS6o="
+  },
+  "dlist-1.0-r2": {
+    "cabal": "sha256-hUcnWUxagWqz0Q8VsbxP7a+eP30e9Reiu5AR8puiYdI=",
+    "tarball": "sha256-Fz1jcyi7Fz/MNl8w0p/0qUKSoeDlVYrrPfwR3oFRARU="
+  },
+  "exceptions-0.10.12-r2": {
+    "cabal": "sha256-EOrTyPonJfUHY6whRwBjSKrGqZsdEOD+JFjNMPSHO1o=",
+    "tarball": "sha256-UzYkOwm/lhUg05pYcpL14/YrbrDvRQ3jNv4HOoY0vyM="
+  },
+  "file-io-0.2.0-r0": {
+    "cabal": "sha256-6JbKAgenDwSh1DV7sDGnA/eTF/+XPvxigX+iN8KWTlw=",
+    "tarball": "sha256-jnX4kF18nxFOYWR3nnoZ/w4paAFez2hpNOOCUFddq+c="
+  },
+  "filepath-1.5.5.0-r0": {
+    "cabal": "sha256-xuwICE/8kIOK020Dw3kr5w+hcZQqNnfsaOm+i0N3VP4=",
+    "tarball": "sha256-h+b1D0P/zik/1DEYTTIf8RpIDSg2nd4waqrkULpKfR4="
+  },
+  "hashable-1.5.1.0-r0": {
+    "cabal": "sha256-FA/Fra0Wb3tSdWfL0m/0gejaSma9/IS+Pd8o2+tm8nU=",
+    "tarball": "sha256-7Qt8EM6Syf/kVCDa3DjG0520hv82M/8TVnzJ9195sRI="
+  },
+  "indexed-traversable-0.1.5-r0": {
+    "cabal": "sha256-8LG1FN/AhSgdC0uTOPwL0MHSXudzBvKhRP/gErCv74w=",
+    "tarball": "sha256-ZCNZfTUorGbFS+qrn1QIQpwKKbjLmMRaFkXyVa73/vA="
+  },
+  "indexed-traversable-instances-0.1.2.1-r0": {
+    "cabal": "sha256-dkYNBcw5M6IZYsd0RADSWUFEwAutwjyPin1d+9Obvm4=",
+    "tarball": "sha256-5p1B8jqVRjwuA67gM3Sk9InHL3vyNb4lFJnEzKlBH+w="
+  },
+  "integer-conversion-0.1.1-r2": {
+    "cabal": "sha256-Ej0bCIQE8JdlAMaNgQWXiqLjKQjOVQjjKuvSN/BEfJ8=",
+    "tarball": "sha256-wYFkoEgHMxD2NT68ZMkDe1KkuCmZY84F4Ce89g4iFVo="
+  },
+  "integer-logarithms-1.0.5-r0": {
+    "cabal": "sha256-hwzoCi5wTxebzaEu4QY4mkhBAPrBU0q/1YeqqlGXjms=",
+    "tarball": "sha256-Zt/28fd4/h7GiROf4SXNTmqVZDc0xlHIker6LFBmlFk="
+  },
+  "megaparsec-9.8.3-r0": {
+    "cabal": "sha256-C4VMSbVuD8qp03TTN+I6XBiKZb9H3Jwjj/OeNjdaUN0=",
+    "tarball": "sha256-lDarRff/GGoTMgZBrwI7z6K4TMTM76xeUKeo7jZrz4s="
+  },
+  "mtl-2.3.2-r1": {
+    "cabal": "sha256-TXrt8CE1VTXCGXzg5jEoKuj6bsVX0hMc7rBF1y2FqSU=",
+    "tarball": "sha256-P5qpT6zTknoqDxiWi/wyALakirURLtDH7DTFN4X9ZLY="
+  },
+  "network-uri-2.6.4.2-r1": {
+    "cabal": "sha256-b/+1c3OWK1ZRotuLCvcyCYs78CmnztdqmFVhXeICZYg=",
+    "tarball": "sha256-nBiJcxJuiTJQuIHyDogR3KBsIjwjQCsG96Hy6ZV5cig="
+  },
+  "optparse-applicative-0.18.1.0-r1": {
+    "cabal": "sha256-8wlzhhrH5+v/Bf+MfD0eTSg6HzhQ4cwUEGsGk+wbbYI=",
+    "tarball": "sha256-Y4EatP0m6Cm4hoNkMlqIvjrMeYGfW7UAWy3TuWHsxJE="
+  },
+  "os-string-2.0.11-r0": {
+    "cabal": "sha256-wGY/X0KBCGgPSq4PZ7ezV8G7WVQoHH++lBxQxYzXnxg=",
+    "tarball": "sha256-VIB0EOZeDpfHHuN+qomt6aZWteJ/Q1whTx3W6q0Y1xQ="
+  },
+  "parsec-3.1.18.0-r1": {
+    "cabal": "sha256-KKDLlkz0wUrCcZgvqBW+4hy0/zno8rl+/gNeY61oV6o=",
+    "tarball": "sha256-QC+fEzpxRiZ4+cJXk09QT1XkQdcMVKc+5wWCGCRQ0K8="
+  },
+  "parser-combinators-1.3.1-r0": {
+    "cabal": "sha256-sLPrzfqNLg2D/3tv1V33hw0Rgr2Z7oQUXwLL+BeG+Oo=",
+    "tarball": "sha256-nFBsw4+d8PwjqULnOe0fB5n8bFRRXXcN4EQWjs/3QL8="
+  },
+  "prettyprinter-1.7.2-r0": {
+    "cabal": "sha256-46gC6pOdRlsuN7n6Cdjlu4i1d11tYt0uxsoytjQWZW0=",
+    "tarball": "sha256-8E62/YZVEq2Gctoei/zqHDhFCfwvZixBt6w514mHBu4="
+  },
+  "prettyprinter-ansi-terminal-1.1.4-r0": {
+    "cabal": "sha256-UYS6YAKmUN4zB1RzR+q6Gb3JuC62jpQ/QGgYyqIVzk8=",
+    "tarball": "sha256-kSzTQNXCWDER4urrmqA7h1UcouPdeLv9NGdWufHmyf4="
+  },
+  "primitive-0.9.1.0-r1": {
+    "cabal": "sha256-dWsiLHFbxu9bqB+mnNuqIMXFO+tvFvF0uLrMk6bSOfA=",
+    "tarball": "sha256-RLTeQYE8e8Xbilf4fDYSoGm2UIaUYmi6FlCXJS69PXY="
+  },
+  "process-1.6.30.0-r0": {
+    "cabal": "sha256-t07td+syN8Srajnwi8zkcStEhrCRcS7iDpLIhk8egKA=",
+    "tarball": "sha256-rM+CG0WwFsKE7iY074JDzkxqbbGoYQCSrzLRtOcbC+I="
+  },
+  "random-1.3.1-r0": {
+    "cabal": "sha256-C09knD54cTssytFTUlHuNLFII3+yIp1wWMKx2czDJLg=",
+    "tarball": "sha256-2ECsg/JlsM+ipnj47HhifrUM+b4vBnxSyKQjnCm3GjU="
+  },
+  "scientific-0.3.9.0-r0": {
+    "cabal": "sha256-hn09hirPBBzxVA7KTh1pl5fp2LYa3kGoKEyUrYP/VA0=",
+    "tarball": "sha256-OenHuqE4UuJF9fycgtgutWTNFaDcs6KFDZofwTrxxwc="
+  },
+  "semialign-1.4-r0": {
+    "cabal": "sha256-z228t3xdka+kRFcjtnAsIitMLr1/hxRm5/C9+o7XAHE=",
+    "tarball": "sha256-D1E4nlevZGBC3OwlEZYGF77ihXIxrCkSKM9O9mIalGQ="
+  },
+  "semigroupoids-6.0.2-r1": {
+    "cabal": "sha256-UsWjRv33Q4Bhj2f/eEmJ75B4SY273/CeTY4v7SAgLiw=",
+    "tarball": "sha256-5IJY5JVCJF72xY1/QZqD0dGrkbAT2Sw7XIx8BI2qoS4="
+  },
+  "splitmix-0.1.3.2-r0": {
+    "cabal": "sha256-pVfP9l7tH3Dzo7RoQjzVjnqalWTFzADHahPeZN7JvL0=",
+    "tarball": "sha256-ph1OizD1oWUm19MRcbZ0rnkk0iB/N4Bg0TNjvYeU3ow="
+  },
+  "stm-2.5.3.1-r1": {
+    "cabal": "sha256-QhtXyc31W0l36URTNr44lboMjZK27G5HTxQOFzJw2d0=",
+    "tarball": "sha256-67BGU5HtzmeH6VS+8NAkbsAHsskJa3whrWmrfYAmMOc="
+  },
+  "strict-0.5.1-r1": {
+    "cabal": "sha256-WMNzt8d0jLtKWmyMFQc/maHBCpqbtolKwz9Dpc25AfI=",
+    "tarball": "sha256-d3GSgMKoYxLnSCJ7+nMu6q4OffSNV6zDwuW3sHr+L4s="
+  },
+  "tagged-0.8.11-r0": {
+    "cabal": "sha256-KtqNLMM9zE7V4uvx/Ccnk7BKmEDZXkTPVW8kjAo6iUw=",
+    "tarball": "sha256-sojPZ7zn3yshcX/CVMBd6o64FP7EEFnSY7pdgizYx14="
+  },
+  "text-2.1.4-r0": {
+    "cabal": "sha256-MoI/1AsC25tO9MUnycPmwdzTZbinlSH5140sCgqNZPE=",
+    "tarball": "sha256-Fi6Pd8LnsMRkV6BEVzvEif3WJM3EC93ptwtHkkwIEHQ="
+  },
+  "text-iso8601-0.1.1.2-r0": {
+    "cabal": "sha256-jaW3TWx566ZX7F+P0onxsKrSRjU4koyWxgNcUtA6yas=",
+    "tarball": "sha256-3bsTrscKL9VMeiW/heOKRn0NVZmYDSH0kls8cG+Pc5g="
+  },
+  "text-short-0.1.6.1-r0": {
+    "cabal": "sha256-MwsDek90wGnh7P4JCLr4+1JlJu819HkivWeuKz2IaGQ=",
+    "tarball": "sha256-g2afQCNUJ0+83HUSZEOvczJnuVXkUfcsDG2Gro2odBY="
+  },
+  "th-abstraction-0.7.2.0-r0": {
+    "cabal": "sha256-OAgZ1uFGRb9mr5m26j09QwnFI8fQ7jduBngEJiLxwnI=",
+    "tarball": "sha256-lGZUvNjqLf99AFgGGGGoyJi+mt3yDJLTz6U7Z55zdiI="
+  },
+  "th-compat-0.1.7-r0": {
+    "cabal": "sha256-RJvgmk4/RupGRXAMAmYkxLbwZvUIGHMmwoTb3qiIS8k=",
+    "tarball": "sha256-nibxIjDTiuVtz5T4wTl5ncO3N280NNNc50hHoKJP1f8="
+  },
+  "these-1.2.1-r3": {
+    "cabal": "sha256-uhrsmlAusrP5DvJU9CBGijxOW5t+gyTj3ccDUUPJJkA=",
+    "tarball": "sha256-F9bZMzZe2r+AGhaELBQDvdN8xTAPqi/MqYDezasi5N4="
+  },
+  "time-1.14-r1": {
+    "cabal": "sha256-kYRV4H80cEnCFppDFprKd956LJfjOsoLR2qrzYp5eY0=",
+    "tarball": "sha256-36D+fMlyjiDRI6BnFh+iPuJ6WxgNWPoJ13OMuK1zfz4="
+  },
+  "time-compat-1.9.9-r1": {
+    "cabal": "sha256-DCkeDDyH7giyUXEHtikBsQKgQNyGIDtTvfB6lv9WMuA=",
+    "tarball": "sha256-kPrd7VPPnBWFXuv4CelTavj4XQDjK4L3yLUG0vrffCU="
+  },
+  "transformers-0.6.3.0-r2": {
+    "cabal": "sha256-F6jMnVh3agDAxsIoOsri8ZfXE4DlabLUnJqqLbun+KE=",
+    "tarball": "sha256-UWjejy8Hkylo64NJ2hCTs8Hx5j+3pUR7SBYY6nM/9oM="
+  },
+  "transformers-compat-0.7.2-r0": {
+    "cabal": "sha256-BE+5lV9j7hOPzr7f3L5Ur+dB8tWJKi0L3zqAUr00JkM=",
+    "tarball": "sha256-tixzBMnzy8lGPQc5qoXLlInyF+oJK51iXUF1FPvMnWo="
+  },
+  "unix-2.8.8.0-r1": {
+    "cabal": "sha256-lFbM2+6xgYmD8NJfJZma21/KB9FJR00vgt6Vay6wOn4=",
+    "tarball": "sha256-oSjeo7/rcxpWLyLTdvpgbpAhVNlTITY/fsHqa3h6Wj4="
+  },
+  "unordered-containers-0.2.21-r2": {
+    "cabal": "sha256-xd4fszd+08X0zYUadx0azFw30va+8KSZKVwOiFfaVgU=",
+    "tarball": "sha256-OyrRUitUbmGWAVMlfR5dI57uxeg9qEfVy02Jalu3+cA="
+  },
+  "uuid-types-1.0.6.1-r0": {
+    "cabal": "sha256-leW8eeNQPJvX5o8MdjlAB0TIJAdKCi4OTHQ4ohyMTU8=",
+    "tarball": "sha256-nwDyeLlxEQS2rMFATZ8NRcEYO0mHz5wHQDvrwFwMMCQ="
+  },
+  "vector-0.13.2.0-r5": {
+    "cabal": "sha256-PsEt5YDuMc6sibMU/QC1BX7UAZjAs9np2vpUwZQeaUI=",
+    "tarball": "sha256-KPIDx4bL+Kxtw/6jN47DbzQXPVBftKHdYPyEGK2RxCM="
+  },
+  "vector-stream-0.1.0.1-r4": {
+    "cabal": "sha256-SDvm3xPHIWmpF2QFiWZvn+znvqn6E/zUHQUtqzfqKJ4=",
+    "tarball": "sha256-0PUHM0vepUMaLwf1Jal/KedlIsMiEPXebVorTx1Cv3w="
+  },
+  "witherable-0.5-r2": {
+    "cabal": "sha256-pWAEMd9dKX8JjDIsf7wuzoBORK3guyAiqDjeJGBNYnU=",
+    "tarball": "sha256-SENMweRlsTy8ATOpDD7A2CfJO3fOlYB/4KOLZfSRjNE="
+  }
+}

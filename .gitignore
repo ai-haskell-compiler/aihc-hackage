@@ -27,6 +27,10 @@ public/shell/assets/haddock-worker.js
 .compiler-haddock/
 .wrangler-dev.log
 .haddock-build.log
+result
+result-*
+.component-cache/
+__pycache__/
 
 .planner-state/
 public/builder/
