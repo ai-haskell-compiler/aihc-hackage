@@ -32,3 +32,14 @@ loadPackageDocIn :: HackageCabal.BuildContext -> FilePath -> FilePath -> [Packag
 loadPackageDocIn context headerDir root dependencies = do`);
 await replace(packageFile, 'HackageCabal.collectLibraryFiles gpd root', 'HackageCabal.collectLibraryFilesIn context gpd root');
 await replace(packageFile, 'HackageCabal.collectLibraryExposedModules gpd', 'HackageCabal.collectLibraryExposedModulesIn context gpd');
+
+// Shared headers need one write per plan. WASI cannot read their file size.
+const storeFile = join(base, 'src/Aihc/Haddock/Store.hs');
+await replace(storeFile, 'documentPlan store useCache documentDependencies say plan = snd <$> go True plan', `documentPlan store useCache documentDependencies say plan = do
+  headerDir <- writeCompilerHeaders documentationHeaderTarget (storeRoot store)
+  snd <$> go headerDir True plan`);
+await replace(storeFile, '    go persist current = do', '    go headerDir persist current = do');
+await replace(storeFile, 'mapM (go documentDependencies)', 'mapM (go headerDir documentDependencies)');
+await replace(storeFile, `          headerDir <- writeCompilerHeaders documentationHeaderTarget (storeRoot store)
+          package <- loadPackageDoc headerDir root (map snd dependencies)`,
+'          package <- loadPackageDoc headerDir root $ map snd dependencies');
