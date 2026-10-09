@@ -34,9 +34,10 @@ await replace(packageFile, 'HackageCabal.collectLibraryFiles gpd root', 'Hackage
 await replace(packageFile, 'HackageCabal.collectLibraryExposedModules gpd', 'HackageCabal.collectLibraryExposedModulesIn context gpd');
 
 // Shared headers need one write per plan. WASI cannot read their file size.
+// Keep these headers in the temporary shell cache, including with a custom store.
 const storeFile = join(base, 'src/Aihc/Haddock/Store.hs');
 await replace(storeFile, 'documentPlan store useCache documentDependencies say plan = snd <$> go True plan', `documentPlan store useCache documentDependencies say plan = do
-  headerDir <- writeCompilerHeaders documentationHeaderTarget (storeRoot store)
+  headerDir <- writeCompilerHeaders documentationHeaderTarget "/.cache/aihc-haddock"
   snd <$> go headerDir True plan`);
 await replace(storeFile, '    go persist current = do', '    go headerDir persist current = do');
 await replace(storeFile, 'mapM (go documentDependencies)', 'mapM (go headerDir documentDependencies)');
