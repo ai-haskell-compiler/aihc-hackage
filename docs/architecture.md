@@ -372,6 +372,7 @@ It does not execute uploaded HTML or scripts.
 Some inferred types, cross-package links, and table content are not available in the current generator.
 
 A second Workflow instance rebuilds each uploaded result with the same Wasm component.
+The Workflow Worker can use up to 120 seconds of CPU time for dependency documentation.
 It marks the result as `verified` only when the complete output hash matches.
 Public HTTP routes cannot change this status.
 A failed or different rebuild leaves the result as a community contribution.
