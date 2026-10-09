@@ -18,6 +18,7 @@
       {"name": "aihc-package-plan", "version": "0.1.0.0", "source": "local"},
       {"name": "aihc-parser", "version": "4.0.0.0", "source": "hackage", "revision": 0},
       {"name": "aihc-prim", "version": "0.13.0", "source": "core"},
+      {"name": "aihc-resolve", "version": "0.1.0.0", "source": "local"},
       {"name": "aihc-rts", "version": "1.0.2", "source": "core"},
       {"name": "aihc-template-haskell", "version": "2.23.0.0", "source": "core"},
       {"name": "ansi-terminal", "version": "1.1.5", "source": "hackage", "revision": 0},

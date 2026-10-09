@@ -28,7 +28,7 @@ const packageFile = join(base, 'src/Aihc/Haddock/Package.hs');
 await replace(packageFile, '    loadPackageDoc,', '    loadPackageDoc,\n    loadPackageDocIn,');
 await replace(packageFile, 'loadPackageDoc headerDir root dependencies = do', `loadPackageDoc = loadPackageDocIn HackageCabal.hostBuildContext
 
-loadPackageDocIn :: HackageCabal.BuildContext -> FilePath -> FilePath -> [PackageSpec] -> IO PackageDoc
+loadPackageDocIn :: HackageCabal.BuildContext -> FilePath -> FilePath -> [PackageDoc] -> IO PackageDoc
 loadPackageDocIn context headerDir root dependencies = do`);
 await replace(packageFile, 'HackageCabal.collectLibraryFiles gpd root', 'HackageCabal.collectLibraryFilesIn context gpd root');
 await replace(packageFile, 'HackageCabal.collectLibraryExposedModules gpd', 'HackageCabal.collectLibraryExposedModulesIn context gpd');

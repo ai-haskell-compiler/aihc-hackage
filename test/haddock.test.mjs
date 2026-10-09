@@ -45,7 +45,7 @@ test('aihc-haddock documents a package from the shell files', async () => {
   assert.equal(code, 0, output());
   assert.match(output(), /docs-sample-0\.1\.0\.0: 1 exposed modules/);
   const model = JSON.parse(bytesText(fs.read('/home/user/docs.json')));
-  assert.equal(model.format_version, 1);
+  assert.equal(model.format_version, 2);
   assert.deepEqual(model.modules.map(module => module.name), ['Docs.Sample']);
   const hoogle = bytesText(fs.read('/home/user/docs.txt'));
   assert.match(hoogle, /greet :: String -> String/);

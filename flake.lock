@@ -5,17 +5,17 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1791273542,
-        "narHash": "sha256-N9S8vyzOMbmhN/Ob13HQsiWGkzKsDr9lwApQ6HgUBi0=",
+        "lastModified": 1791533506,
+        "narHash": "sha256-6D1OzSY1uP1S7v9YOBeSIoq9uBSb3EsN8rK35whYKQI=",
         "owner": "ai-haskell-compiler",
         "repo": "aihc",
-        "rev": "7b0c849328ad36de9135bcc215c706187d6beb0c",
+        "rev": "aa6debbd8e6a1486de1d6c1766e12e226c4a3b61",
         "type": "github"
       },
       "original": {
         "owner": "ai-haskell-compiler",
         "repo": "aihc",
-        "rev": "7b0c849328ad36de9135bcc215c706187d6beb0c",
+        "rev": "aa6debbd8e6a1486de1d6c1766e12e226c4a3b61",
         "type": "github"
       }
     },
