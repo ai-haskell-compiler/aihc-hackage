@@ -31,6 +31,10 @@
     "cabal": "sha256-A6UPzx5to0BD5URop4raotwS1qYfiHYvJN+GMegtRGY=",
     "tarball": "sha256-BNfk3sku0uKK4CE1ddZvV+vykqlo6qc7CDFmmHSCYo4="
   },
+  "aihc-parser-5.0.0.0-r0": {
+    "cabal": "sha256-JMDNdvkytR5U4PkoAr+7UzmF5+xRsLia+++1y+ShsrA=",
+    "tarball": "sha256-2HuTUsMHDKTk9ACbFVvywICOiqSBWckkD7MzwxrISTk="
+  },
   "ansi-terminal-1.1.5-r0": {
     "cabal": "sha256-QI2SMuUwTv6tcY+WE41tfrLaYIxhIcXA3GpxqDOxQyA=",
     "tarball": "sha256-nPCDzvLiuoikJfEyyKgr+pMetLDDgjKyAX+PzqLiMHM="
