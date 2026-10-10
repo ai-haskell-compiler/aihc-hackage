@@ -1,5 +1,5 @@
 // Change the ABI when the plan consumer or documentation model changes.
-export const GENERATOR = 'aihc-haddock-aa6debbd-web-2';
+export const GENERATOR = 'aihc-haddock-aa6debbd-web-3';
 export const TARGET = 'linux-x86_64';
 export const MAX_MODEL = 8 * 1024 * 1024;
 export const MAX_SOURCE = 16 * 1024 * 1024;

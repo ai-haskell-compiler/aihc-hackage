@@ -38,7 +38,7 @@ instance FromJSON Plan where
 buildFromPlan :: FilePath -> FilePath -> FilePath -> IO ()
 buildFromPlan file jsonFile hoogleFile = do
   Plan format generator target root entries <- BL.readFile file >>= either fail pure . eitherDecode
-  unless (format == 1 && generator == "aihc-haddock-aa6debbd-web-2" && target == "linux-x86_64") $
+  unless (format == 1 && generator == "aihc-haddock-aa6debbd-web-3" && target == "linux-x86_64") $
     fail "The documentation plan is not supported."
   headers <- writeCompilerHeaders documentationHeaderTarget "/.headers"
   model <- evalStateT (loadEntry headers entries root) Map.empty
