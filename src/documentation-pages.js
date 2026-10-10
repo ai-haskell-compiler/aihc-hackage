@@ -33,7 +33,7 @@ export function builderPage({ name = '', version = '' } = {}) {
         <li data-stage="generate"><span class="stage-number">3</span><div><strong>Generate documentation</strong><p>Run aihc-haddock in your browser.</p></div></li>
         <li data-stage="upload"><span class="stage-number">4</span><div><strong>Preview and upload</strong><p>Share a public community contribution.</p></div></li>
       </ol><p class="muted">Documentation describes Linux on x86-64. The generator can report incomplete results.</p></aside></div>
-      <details id="build-details" hidden><summary>Build details</summary><pre id="build-log"></pre></details>
+      <details id="build-details" hidden><summary>Build log</summary><pre id="build-log"></pre></details>
       <section id="build-preview" hidden><label for="build-module">Module<select id="build-module"></select></label><div id="build-preview-content"></div></section>
     </section>` });
 }

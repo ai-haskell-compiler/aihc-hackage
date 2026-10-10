@@ -265,7 +265,7 @@ dialog input{margin-top:6px;background:var(--background)}
 .builder-stages .active .stage-number,.builder-stages .complete .stage-number{color:var(--accent);border-color:var(--accent);background:var(--soft-accent)}
 .builder-stages .active strong{color:var(--accent)}
 #build-details{margin-top:24px}
-#build-details pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+#build-details pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow-y:auto}
 #build-preview{border-top:1px solid var(--border);padding-top:28px;margin-top:28px}
 #build-preview>label{max-width:360px}
 #build-output{margin-top:24px;border-top:1px solid var(--border)}

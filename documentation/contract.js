@@ -1,9 +1,12 @@
 // Change the ABI when the plan consumer or documentation model changes.
-export const GENERATOR = 'aihc-haddock-aa6debbd-web-2';
+export const GENERATOR = 'aihc-haddock-aa6debbd-web-3';
 export const TARGET = 'linux-x86_64';
 export const MAX_MODEL = 8 * 1024 * 1024;
 export const MAX_SOURCE = 16 * 1024 * 1024;
 export const MAX_UNPACKED = 128 * 1024 * 1024;
+// The containers package gives about 310000 nodes and a depth of 48. Nested document trees cause the depth.
+export const MAX_NODES = 1000000;
+export const MAX_DEPTH = 128;
 export const HASH = /^[a-f0-9]{64}$/;
 export const NAME = /^(?=.{1,128}$)[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]*[A-Za-z][A-Za-z0-9]*)*$/;
 export const VERSION = /^(?=.{1,128}$)\d{1,9}(?:\.\d{1,9})*$/;
@@ -57,7 +60,7 @@ export function validatePlan(plan) {
 export function validateModel(model, plan) {
   let nodes = 0;
   function walk(value, depth) {
-    requireValue(++nodes <= 200000 && depth <= 48, 'The documentation exceeds the structure limit.');
+    requireValue(++nodes <= MAX_NODES && depth <= MAX_DEPTH, 'The documentation exceeds the structure limit.');
     if (typeof value === 'string') requireValue(value.length <= 200000, 'The documentation contains text above the size limit.');
     else if (value && typeof value === 'object') for (const child of Object.values(value)) walk(child, depth + 1);
   }

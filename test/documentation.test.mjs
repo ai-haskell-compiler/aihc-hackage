@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
-import { GENERATOR, MAX_MODEL, canonical, digest, encode, validateModel, validatePlan } from '../documentation/contract.js';
+import { GENERATOR, MAX_DEPTH, MAX_MODEL, canonical, digest, encode, validateModel, validatePlan } from '../documentation/contract.js';
 import { sourceEntries, decompress } from '../documentation/archive.js';
 import { previewHtml } from '../documentation/render.js';
 import { tar, fixturePlan, fixtureModel } from './helpers/documentation.mjs';
@@ -29,7 +29,7 @@ test('Plans and models reject cycles, wrong identities, and deep document trees.
   const model = fixtureModel(plan); validateModel(model, plan);
   assert.throws(() => validateModel({ ...model, name: 'other' }, plan), /match/);
   let doc = { tag: 'DocString', string: 'x' };
-  for (let i = 0; i < 50; i++) doc = { tag: 'DocParagraph', document: doc };
+  for (let i = 0; i < MAX_DEPTH; i++) doc = { tag: 'DocParagraph', document: doc };
   model.modules[0].description = doc;
   assert.throws(() => validateModel(model, plan), /structure/);
 });

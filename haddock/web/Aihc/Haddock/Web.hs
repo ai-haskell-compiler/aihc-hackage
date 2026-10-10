@@ -8,18 +8,19 @@ import Aihc.Hackage.Cabal (BuildContext (..))
 import Aihc.Hackage.Headers (writeCompilerHeaders)
 import Aihc.Hackage.Package (Arch (X86_64), OS (Linux))
 import Aihc.Haddock.Hoogle (renderHoogle)
-import Aihc.Haddock.Model (PackageDoc, encodePackageDoc)
+import Aihc.Haddock.Model (PackageDoc)
 import Aihc.Haddock.Package (documentationHeaderTarget, loadPackageDocIn)
 import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.State.Strict (StateT, evalStateT, get, modify')
-import Data.Aeson (FromJSON (..), eitherDecode, withObject, (.:))
+import Data.Aeson (FromJSON (..), eitherDecode, encode, withObject, (.:))
 import Data.ByteString.Lazy qualified as BL
 import Data.List (find)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text (Text)
 import Data.Text.IO qualified as TIO
+import System.IO (hFlush, hPutStrLn, stderr)
 
 data Entry = Entry String String (Map Text Bool) [String]
 
@@ -37,12 +38,18 @@ instance FromJSON Plan where
 buildFromPlan :: FilePath -> FilePath -> FilePath -> IO ()
 buildFromPlan file jsonFile hoogleFile = do
   Plan format generator target root entries <- BL.readFile file >>= either fail pure . eitherDecode
-  unless (format == 1 && generator == "aihc-haddock-aa6debbd-web-2" && target == "linux-x86_64") $
+  unless (format == 1 && generator == "aihc-haddock-aa6debbd-web-3" && target == "linux-x86_64") $
     fail "The documentation plan is not supported."
   headers <- writeCompilerHeaders documentationHeaderTarget "/.headers"
   model <- evalStateT (loadEntry headers entries root) Map.empty
-  BL.writeFile jsonFile (encodePackageDoc model)
+  progress "Writing the documentation model."
+  -- Compact JSON is less than half the size of the pretty output, and the upload limit is 8 MiB.
+  BL.writeFile jsonFile (encode model)
   TIO.writeFile hoogleFile (renderHoogle model)
+
+-- The browser builder reads these lines to show a log and to reset its timeout.
+progress :: String -> IO ()
+progress message = hPutStrLn stderr ("progress: " <> message) >> hFlush stderr
 
 loadEntry :: FilePath -> [Entry] -> String -> StateT (Map String PackageDoc) IO PackageDoc
 loadEntry headers entries name = do
@@ -50,8 +57,10 @@ loadEntry headers entries name = do
   case cached of
     Just model -> pure model
     Nothing -> do
-      Entry _ _ flags dependencies <- liftIO $ maybe (fail "A package is missing from the plan.") pure (find (\(Entry candidate _ _ _) -> name == candidate) entries)
+      Entry _ version flags dependencies <- liftIO $ maybe (fail "A package is missing from the plan.") pure (find (\(Entry candidate _ _ _) -> name == candidate) entries)
       models <- mapM (loadEntry headers entries) dependencies
+      done <- Map.size <$> get
+      liftIO $ progress ("Documenting " <> name <> "-" <> version <> " (" <> show (done + 1) <> " of " <> show (length entries) <> ").")
       model <- liftIO $ loadPackageDocIn (BuildContext Linux X86_64 flags) headers ("/packages/" <> name) models
       modify' (Map.insert name model)
       pure model
