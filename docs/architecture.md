@@ -307,7 +307,12 @@ It has no shell interface and cannot read the shell filesystem.
 The browser must support WebAssembly JSPI and gzip decompression.
 The page checks these features before a build.
 Cancellation terminates the build Worker.
-A build stops after ten minutes.
+A build stops if one step takes more than ten minutes.
+A step is one download or the documentation of one package.
+Thus, a plan with many packages gets more time.
+The generator writes a `progress:` line to stderr before it documents each package.
+The page shows a log with the time of each step, the generator output, and any error.
+The result keeps a copy of the log.
 
 The generator uses an explicit dependency plan.
 The plan fixes the package versions, Cabal revisions, flags, source hashes, generator version, and target.
@@ -375,6 +380,8 @@ Source archives use immutable hash addresses and a shared cache.
 The ticket expires after thirty minutes.
 `PUT /api/docs/uploads/{id}` requires the ticket token.
 The API limits uploads to 8 MiB and checks the model structure, identity, and dependency list.
+The model structure can have 1,000,000 JSON values and a depth of 128.
+The generator writes compact JSON to keep large packages below the upload limit.
 A repeated upload returns the same result address.
 R2 stores the model before a D1 transaction publishes its result record.
 

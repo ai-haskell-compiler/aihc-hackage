@@ -14,8 +14,17 @@ export async function checkedDownload(url, sha256, limit, fetcher = fetch) {
   await saved('files', sha256, bytes);
   return bytes;
 }
-export async function buildDocumentation(plan, { progress = () => {}, runtime, getCompiledModule, download = checkedDownload } = {}) {
+export async function buildDocumentation(plan, { progress: report = () => {}, runtime, getCompiledModule, download = checkedDownload } = {}) {
   validatePlan(plan);
+  // Keep a copy of the log in the result, so a saved result shows how it was made.
+  const started = Date.now(); const history = [];
+  const log = (message, event = { type: 'log', message }) => {
+    const seconds = Math.floor((Date.now() - started) / 1000);
+    const line = `[${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}] ${message}`;
+    if (history.length < 4000) history.push(line);
+    report({ ...event, line });
+  };
+  const progress = event => log(`${event.message}${event.total ? ` ${event.completed} of ${event.total} packages.` : ''}`, { type: 'progress', ...event });
   if (plan.id && await digest(encode(canonical(Object.fromEntries(Object.entries(plan).filter(([key]) => key !== 'id'))))) !== plan.id) throw new Error('The plan checksum is incorrect.');
   if (!runtime) {
     const response = await fetch('/builder/runtime.json', { cache: 'no-cache' });
@@ -52,19 +61,32 @@ export async function buildDocumentation(plan, { progress = () => {}, runtime, g
   fs.write('/plan.json', encode(JSON.stringify(plan)));
   progress({ stage: 'generate', message: `Generating documentation for ${plan.root.name}.` });
   let output = '';
+  const decoders = {}; const pending = {};
+  // The generator writes one "progress:" line before it documents each package.
+  const line = text => {
+    const message = text.startsWith('progress: ') ? text.slice(10) : null;
+    if (message) progress({ stage: 'generate', message });
+    else if (output.length < 64000) { output += `${text}\n`; log(text); }
+  };
   const code = await runComponent(instantiate, path => compiled[path], {
     filesystem: fs, args: ['aihc-haddock', 'web-build', '/plan.json', '/docs.json', '/docs.txt'], cwd: '/', stdin: new Uint8Array(),
-    onOutput: (stream, bytes) => { if (output.length < 64000) output += new TextDecoder().decode(bytes); },
+    onOutput: (stream, bytes) => {
+      const lines = ((pending[stream] || '') + (decoders[stream] ||= new TextDecoder()).decode(bytes, { stream: true })).split('\n');
+      pending[stream] = lines.pop(); lines.forEach(line);
+    },
   });
+  Object.values(pending).filter(Boolean).forEach(line);
   if (code !== 0) throw new Error(output.slice(-4000) || 'Documentation generation failed.');
+  progress({ stage: 'generate', message: 'Checking the documentation model.' });
   const modelText = new TextDecoder().decode(fs.read('/docs.json'));
   const model = validateModel(JSON.parse(modelText), plan);
-  return { plan, modelText, model, hoogle: new TextDecoder().decode(fs.read('/docs.txt')), log: output };
+  progress({ stage: 'generate', message: `The documentation model is ready (${Math.ceil(modelText.length / 1024)} KiB).` });
+  return { plan, modelText, model, hoogle: new TextDecoder().decode(fs.read('/docs.txt')), log: history.join('\n') };
 }
 if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
   self.onmessage = async event => {
     try {
-      const result = await buildDocumentation(event.data.plan, { progress: progress => self.postMessage({ type: 'progress', ...progress }) });
+      const result = await buildDocumentation(event.data.plan, { progress: event => self.postMessage(event) });
       self.postMessage({ type: 'result', result });
     } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
   };

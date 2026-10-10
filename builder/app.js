@@ -15,6 +15,12 @@ function progress(stage, message) {
   }
   el('status').textContent = message;
 }
+function log(line) {
+  el('details').hidden = false;
+  const output = el('log'); const end = output.scrollTop + output.clientHeight >= output.scrollHeight - 4;
+  output.append(`${output.textContent ? '\n' : ''}${line}`);
+  if (end) output.scrollTop = output.scrollHeight;
+}
 function error(message) { el('error').hidden = !message; el('error').textContent = message || ''; }
 function busy(value) {
   el('name').disabled = value; el('version').disabled = value;
@@ -35,7 +41,7 @@ function existing(result) {
 function clearResult() {
   current = null;
   for (const name of ['output', 'preview', 'details', 'existing']) el(name).hidden = true;
-  el('result').replaceChildren();
+  el('result').replaceChildren(); el('log').textContent = '';
   el('status').textContent = '';
   for (const item of root.querySelectorAll('[data-stage]')) item.classList.remove('complete', 'active');
 }
@@ -103,17 +109,24 @@ function pause(signal) {
     if (signal.aborted) cancel();
   });
 }
+// The time limit applies to each step, so a plan with many packages gets more time.
+const STEP_LIMIT = 600000;
 function generate(plan, signal) {
   return new Promise((accept, reject) => {
     const worker = new Worker('/builder/assets/runner.js', { type: 'module' });
-    const timeout = setTimeout(() => finish(new Error('The build exceeded ten minutes.')), 600000);
+    let step = 'Starting the generator.'; let timeout;
+    const wait = () => { clearTimeout(timeout); timeout = setTimeout(() => finish(new Error(`The build stopped at one step for more than ten minutes: ${step}`)), STEP_LIMIT); };
+    wait();
     const cancel = () => finish(new DOMException('Cancelled', 'AbortError'));
     const finish = (problem, result) => { clearTimeout(timeout); signal.removeEventListener('abort', cancel); worker.terminate(); problem ? reject(problem) : accept(result); };
     signal.addEventListener('abort', cancel, { once: true });
     worker.onmessage = event => {
       const message = event.data;
-      if (message.type === 'progress') progress(message.stage, `${message.message}${message.total ? ` ${message.completed} of ${message.total} packages.` : ''}`);
-      else if (message.type === 'result') finish(null, message.result);
+      if (message.line) log(message.line);
+      if (message.type === 'progress') {
+        step = message.message; wait();
+        progress(message.stage, `${message.message}${message.total ? ` ${message.completed} of ${message.total} packages.` : ''}`);
+      } else if (message.type === 'result') finish(null, message.result);
       else if (message.type === 'error') finish(new Error(message.message));
     };
     worker.onerror = () => finish(new Error('The generator stopped. This device may not have enough memory.'));
@@ -125,10 +138,13 @@ el('form').addEventListener('submit', async event => {
   error(''); clearResult(); busy(true); operation = new AbortController(); const { signal } = operation;
   const name = el('name').value.trim(); const version = el('version').value;
   try {
-    progress('plan', 'Requesting a dependency plan.');
+    el('details').open = true;
+    progress('plan', 'Requesting a dependency plan.'); log(`Requesting a dependency plan for ${name}-${version}.`);
     let job = await api('/api/docs/plans', { body: { name, version }, signal });
-    const started = Date.now();
+    const started = Date.now(); let state;
     while (job.state === 'queued' || job.state === 'running') {
+      if (job.state !== state) log(job.state === 'queued' ? 'The plan request is in the queue.' : 'The planner is resolving the dependencies.');
+      state = job.state;
       progress('plan', job.state === 'queued' ? 'Waiting for the planner. You can cancel and return later.' : 'Resolving the dependency plan.');
       if (Date.now() - started > 600000) throw new Error('The planner is still busy. Return to this page later.');
       await pause(signal); job = await api(`/api/docs/jobs/${job.id}`, { signal });
@@ -139,12 +155,13 @@ el('form').addEventListener('submit', async event => {
       progress('upload', 'Documentation already exists for this plan. You can read it or generate another result.'); return;
     }
     el('result').replaceChildren();
+    log(`The plan has ${job.plan.packages.length} packages: ${job.plan.packages.map(pkg => `${pkg.name}-${pkg.version}`).join(', ')}.`);
     const result = await generate(job.plan, signal); display(result);
     const stored = await saved('results', `${name}-${version}`, result);
     el('saved').textContent = stored ? 'The result is saved in this browser. You can retry the upload later.' : 'Browser storage is unavailable. Download the result before you close this page.';
   } catch (problem) {
-    if (problem.name === 'AbortError') progress('plan', 'The build was cancelled. Saved files remain available.');
-    else error(problem.message);
+    if (problem.name === 'AbortError') { progress('plan', 'The build was cancelled. Saved files remain available.'); log('The build was cancelled.'); }
+    else { error(problem.message); log(`Error: ${problem.message}`); }
   } finally { operation = null; busy(false); }
 });
 el('upload').addEventListener('click', async () => {
