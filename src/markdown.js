@@ -1,303 +1,91 @@
-// Render CommonMark and GitHub Markdown in package READMEs as HTML text.
-// The renderer escapes all source text and does not parse HTML.
-// The page shows raw HTML as text.
-import { escape } from './html.js';
+// Render GitHub Flavored Markdown in package READMEs as safe HTML text.
+// The pipeline parses raw HTML and then removes all elements, attributes, and URLs
+// that the GitHub sanitization schema does not allow.
+import { unified } from 'unified';
+import remarkParse from 'remark-parse';
+import remarkGfm from 'remark-gfm';
+import remarkRehype from 'remark-rehype';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeStringify from 'rehype-stringify';
 
-const INLINE = new RegExp([
-  String.raw`(\x60+)([^\x60]|[^\x60][\s\S]*?[^\x60])\1(?!\x60)`, // 1, 2: `code`
-  String.raw`!\[([^\]]*)\]\(\s*<?((?:[^()\s<>]|\([^()\s]*\))*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)`, // 3, 4: ![alt](url)
-  String.raw`\[((?:[^\[\]\\]|\\.|\[[^\]]*\])*)\]\(\s*<?((?:[^()\s<>]|\([^()\s]*\))*)>?(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)`, // 5, 6: [label](url)
-  String.raw`!?\[((?:[^\[\]\\]|\\.|\[[^\]]*\])+)\](?:\[([^\]]*)\])?`, // 7, 8: [label][ref]
-  String.raw`<((?:https?:\/\/|mailto:)[^>\s]+)>`, // 9: <url>
-  String.raw`((?:https?:\/\/|www\.)[^\s<>"]*[^\s<>".,;:!?)\]'*_])`, // 10: bare URL
-  String.raw`\*\*(?!\s)([\s\S]+?)(?<!\s)\*\*|(?<![\w\\])__(?!\s)([\s\S]+?)(?<!\s)__(?!\w)`, // 11, 12: strong
-  String.raw`\*(?![\s*])([\s\S]+?)(?<![\s\\])\*|(?<![\w\\])_(?![\s_])([\s\S]+?)(?<![\s\\])_(?!\w)`, // 13, 14: emphasis
-  String.raw`~~(?!\s)([\s\S]+?)(?<!\s)~~`, // 15: strikethrough
-  String.raw`(?: {2,}|\\)\n`, // hard line break
-  String.raw`\\([!-\/:-@\[-\x60{-~])`, // 16: escaped character
-  String.raw`&(#\d{1,7}|#[xX][\da-fA-F]{1,6}|[A-Za-z]{2,8});`, // 17: entity
-  String.raw`(<!--[\s\S]*?-->)`, // 18: comment
-].join('|'), 'g');
+// The sanitizer adds this prefix to each id and name attribute to prevent DOM clobbering.
+const PREFIX = defaultSchema.clobberPrefix;
 
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', mdash: '—', ndash: '–', hellip: '…', rarr: '→', larr: '←' };
-
-function entity(name) {
-  if (name[0] !== '#') return ENTITIES[name];
-  const code = name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-  return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : undefined;
+// Apply a function to each element in a hast tree. The function can replace the children of an element.
+function walk(node, visit) {
+  if (!node.children) return;
+  node.children = node.children.flatMap(child => {
+    if (child.type !== 'element') return [child];
+    walk(child, visit);
+    return visit(child) ?? [child];
+  });
 }
-function safeUrl(url) {
-  if (/^www\./i.test(url)) return `https://${url}`;
-  return /^(?:https?:\/\/|mailto:)/i.test(url) ? url : null;
-}
-const anchor = (href, content) => `<a href="${escape(href)}" rel="nofollow noopener">${content}</a>`;
+const text = node => node.type === 'text' ? node.value : (node.children ?? []).map(text).join('');
 
-function inline(text, refs, inLink = false) {
-  let out = '';
-  let last = 0;
-  for (const match of text.matchAll(INLINE)) {
-    out += escape(text.slice(last, match.index));
-    last = match.index + match[0].length;
-    const [whole, , code, alt, imageUrl, label, url, refLabel, ref, angleUrl, bareUrl,
-      strongStar, strongLine, emStar, emLine, strike, escaped, entityName, comment] = match;
-    if (code !== undefined) {
-      const trimmed = /^ .* $/s.test(code) && code.trim() ? code.slice(1, -1) : code;
-      out += `<code>${escape(trimmed.replace(/\n/g, ' '))}</code>`;
-    } else if (alt !== undefined) out += image(alt, imageUrl);
-    else if (label !== undefined) out += link(label, url, refs, inLink);
-    else if (refLabel !== undefined) {
-      const target = refs.get(normalize(ref || refLabel));
-      if (target === undefined) {
-        out += escape(whole[0] === '!' ? '![' : '[') + inline(refLabel, refs, inLink) + ']';
-        if (ref !== undefined) out += escape(`[${ref}]`);
-      } else if (whole[0] === '!') out += image(refLabel, target);
-      else out += link(refLabel, target, refs, inLink);
-    } else if (angleUrl !== undefined || bareUrl !== undefined) {
-      const value = angleUrl ?? bareUrl;
-      const href = safeUrl(value);
-      if (href && !inLink) out += anchor(href, escape(value.replace(/^mailto:/i, '')));
-      else out += escape(value);
-    } else if (strongStar !== undefined || strongLine !== undefined) out += `<strong>${inline(strongStar ?? strongLine, refs, inLink)}</strong>`;
-    else if (emStar !== undefined || emLine !== undefined) out += `<em>${inline(emStar ?? emLine, refs, inLink)}</em>`;
-    else if (strike !== undefined) out += `<del>${inline(strike, refs, inLink)}</del>`;
-    else if (escaped !== undefined) out += escape(escaped);
-    else if (entityName !== undefined) out += escape(entity(entityName) ?? whole);
-    else if (comment !== undefined) continue;
-    else out += '<br>';
-  }
-  return out + escape(text.slice(last));
-}
-function link(label, url, refs, inLink) {
-  const href = safeUrl(url);
-  const content = inline(label, refs, true);
-  if (!href || inLink) return content;
-  return anchor(href, content);
-}
-// Show an image when its address uses HTTP or HTTPS. Show the alternative text for other images.
-// The browser loads images over HTTPS only and does not send a referrer.
-function image(alt, url) {
-  const text = alt.replace(/[\\*_`]/g, '').trim();
-  if (!/^https?:\/\//i.test(url)) return escape(text);
-  const src = url.replace(/^http:/i, 'https:');
-  return `<img src="${escape(src)}" alt="${escape(text)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
-}
-const normalize = label => label.trim().replace(/\s+/g, ' ').toLowerCase();
-
-const FENCE = /^( {0,3})(\x60{3,}|~{3,})\s*([^\s\x60]*)[^\x60]*$/;
-const ATX = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/;
-const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-const QUOTE = /^ {0,3}> ?(.*)$/;
-const ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])([ \t]+(.*)|[ \t]*)$/;
-const SETEXT = /^ {0,3}(=+|-+)[ \t]*$/;
-// CommonMark HTML block start conditions. Each entry has a start pattern and an end pattern.
-// An end pattern of null means that a blank line ends the block.
-// Only a block of the last kind cannot interrupt a paragraph.
-const BLOCK_TAGS = 'address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul';
-const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
-const HTML_BLOCKS = [
-  [/^ {0,3}<(?:script|pre|style|textarea)(?:\s|>|$)/i, /<\/(?:script|pre|style|textarea)>/i],
-  [/^ {0,3}<!--/, /-->/],
-  [/^ {0,3}<\?/, /\?>/],
-  [/^ {0,3}<![A-Za-z]/, />/],
-  [/^ {0,3}<!\[CDATA\[/, /\]\]>/],
-  [new RegExp(`^ {0,3}</?(?:${BLOCK_TAGS})(?:\\s|/?>|$)`, 'i'), null],
-  [new RegExp(String.raw`^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\s*\/?>|<\/[A-Za-z][A-Za-z0-9-]*\s*>)\s*$`), null],
-];
-const COMMENT = /<!--[\s\S]*?-->/g;
-// Return the HTML block kind that a line starts, or -1.
-const htmlBlock = line => HTML_BLOCKS.findIndex(([start]) => start.test(line));
-const DEFINITION = /^ {0,3}\[([^\]]+)\]:\s*<?(\S+?)>?(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/;
-const TABLE_DIVIDER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
-
-const expandTabs = line => line.replace(/^[ \t]+/, space => space.replace(/\t/g, '    '));
-const indent = line => /^ */.exec(line)[0].length;
-const blank = line => line.trim() === '';
-const codeBlock = (text, language) => `<pre><code${language ? ` data-language="${escape(language)}"` : ''}>${escape(text)}</code></pre>`;
-
-// Return true if a line can interrupt a paragraph.
-function interrupts(line) {
-  if (FENCE.test(line) || ATX.test(line) || RULE.test(line) || QUOTE.test(line)) return true;
-  const kind = htmlBlock(line);
-  if (kind >= 0 && kind < HTML_BLOCKS.length - 1) return true;
-  const item = ITEM.exec(line);
-  return Boolean(item && item[4] && (/^[-*+]$/.test(item[2]) || /^1[.)]$/.test(item[2])));
-}
-function cells(line) {
-  let text = line.trim();
-  if (text.startsWith('|')) text = text.slice(1);
-  if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1);
-  return text.split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, '|'));
-}
-
-// Render block lines. A tight list item renders its paragraphs without p elements.
-function blocks(lines, refs, tight = false) {
-  let out = '';
-  let index = 0;
-  while (index < lines.length) {
-    const line = lines[index];
-    if (blank(line)) { index++; continue; }
-
-    const fence = FENCE.exec(line);
-    if (fence) {
-      const [, space, marker, language] = fence;
-      const body = [];
-      const end = new RegExp(`^ {0,3}${marker[0] === '~' ? '~' : '\x60'}{${marker.length},}\\s*$`);
-      while (++index < lines.length && !end.test(lines[index])) body.push(lines[index].replace(new RegExp(`^ {0,${space.length}}`), ''));
-      index++;
-      out += codeBlock(body.join('\n'), language);
-      continue;
-    }
-    if (indent(line) >= 4) {
-      const body = [];
-      while (index < lines.length && (indent(lines[index]) >= 4 || blank(lines[index]))) body.push(lines[index++].slice(4));
-      while (body.length && blank(body.at(-1))) body.pop();
-      out += codeBlock(body.join('\n'));
-      continue;
-    }
-    const heading = ATX.exec(line);
-    if (heading) {
-      const level = Math.min(6, heading[1].length + 1);
-      out += `<h${level}>${inline(heading[2] || '', refs)}</h${level}>`;
-      index++;
-      continue;
-    }
-    if (RULE.test(line)) { out += '<hr>'; index++; continue; }
-    if (QUOTE.test(line)) {
-      const body = [];
-      while (index < lines.length && !blank(lines[index])) {
-        const quote = QUOTE.exec(lines[index]);
-        if (!quote && interrupts(lines[index])) break;
-        body.push(quote ? quote[1] : lines[index]);
-        index++;
-      }
-      out += `<blockquote>${blocks(body, refs)}</blockquote>`;
-      continue;
-    }
-    const kind = htmlBlock(line);
-    if (kind >= 0) {
-      // Show the HTML block as text without its comments, as GitHub hides comments.
-      const [start, end] = HTML_BLOCKS[kind];
-      const body = [];
-      if (end) {
-        // The end condition can be on the first line, after the start text.
-        let rest = line.slice(start.exec(line)[0].length);
-        while (index < lines.length) {
-          body.push(lines[index++]);
-          if (end.test(rest)) break;
-          rest = lines[index] ?? '';
-        }
-      } else while (index < lines.length && !blank(lines[index])) body.push(lines[index++]);
-      const text = body.join('\n').replace(COMMENT, '');
-      if (!blank(text)) out += codeBlock(text.replace(/^\n+|\s+$/g, ''));
-      continue;
-    }
-    if (ITEM.test(line)) {
-      const result = list(lines, index, refs);
-      out += result.html;
-      index = result.index;
-      continue;
-    }
-    if (line.includes('|') && index + 1 < lines.length && TABLE_DIVIDER.test(lines[index + 1]) && lines[index + 1].includes('-')) {
-      const header = cells(line);
-      const aligns = cells(lines[index + 1]).map(cell => cell.endsWith(':') ? (cell.startsWith(':') ? 'center' : 'right') : cell.startsWith(':') ? 'left' : '');
-      const row = (values, tag) => `<tr>${header.map((_, column) =>
-        `<${tag}${aligns[column] ? ` class="align-${aligns[column]}"` : ''}>${inline(values[column] ?? '', refs)}</${tag}>`).join('')}</tr>`;
-      let body = '';
-      index += 2;
-      while (index < lines.length && !blank(lines[index]) && !interrupts(lines[index])) body += row(cells(lines[index++]), 'td');
-      out += `<div class="table-scroll"><table><thead>${row(header, 'th')}</thead>${body ? `<tbody>${body}</tbody>` : ''}</table></div>`;
-      continue;
-    }
-
-    const paragraph = [line.trim()];
-    index++;
-    while (index < lines.length && !blank(lines[index])) {
-      const setext = SETEXT.exec(lines[index]);
-      if (!setext && interrupts(lines[index])) break;
-      if (setext) {
-        const tag = setext[1][0] === '=' ? 'h2' : 'h3';
-        out += `<${tag}>${inline(paragraph.join('\n'), refs)}</${tag}>`;
-        paragraph.length = 0;
-        index++;
-        break;
-      }
-      paragraph.push(lines[index++].replace(/^\s+/, ''));
-    }
-    if (paragraph.length) {
-      const content = inline(paragraph.join('\n').replace(/\s+$/, ''), refs);
-      out += tight ? content : `<p>${content}</p>`;
-    }
-  }
-  return out;
-}
-
-function list(lines, start, refs) {
-  const first = ITEM.exec(lines[start]);
-  const ordered = /\d/.test(first[2]);
-  const delimiter = first[2].at(-1);
-  const startNumber = ordered ? parseInt(first[2], 10) : 1;
-  // Return true if a line starts a new item in this list.
-  const sameList = line => {
-    const item = ITEM.exec(line);
-    return Boolean(item && /\d/.test(item[2]) === ordered && item[2].at(-1) === delimiter && !RULE.test(line));
+// Make a heading anchor in the GitHub format: lowercase, without punctuation, with hyphens for spaces.
+function slugger() {
+  const seen = new Map();
+  return value => {
+    const base = value.toLowerCase().trim().replace(/[^\p{L}\p{M}\p{N}\p{Pc} -]/gu, '').replace(/ /g, '-');
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return count ? `${base}-${count}` : base;
   };
-  let index = start;
-  let loose = false;
-  const items = [];
-  while (index < lines.length && sameList(lines[index])) {
-    const item = ITEM.exec(lines[index]);
-    const content = item[4] ?? '';
-    const width = item[1].length + item[2].length + (content ? Math.min(item[3].length - content.length, 4) : 1);
-    const body = [content];
-    index++;
-    let sawBlank = false;
-    while (index < lines.length) {
-      const line = lines[index];
-      if (blank(line)) { body.push(''); sawBlank = true; index++; continue; }
-      if (indent(line) >= width) { body.push(line.slice(width)); index++; sawBlank = false; continue; }
-      if (sawBlank || interrupts(line) || ITEM.test(line)) break;
-      body.push(line.trim());
-      index++;
-    }
-    while (body.length && blank(body.at(-1))) body.pop();
-    // A blank line between items or between blocks of one item makes the list loose.
-    const next = index < lines.length && sameList(lines[index]);
-    if ((sawBlank && next) || body.some(blank)) loose = true;
-    items.push(body);
-    if (sawBlank && !next) break;
-  }
-  let html = '';
-  for (const body of items) {
-    const task = /^\[([ xX])\][ \t]+/.exec(body[0]);
-    let prefix = '';
-    if (task) {
-      body[0] = body[0].slice(task[0].length);
-      prefix = `<input type="checkbox" disabled${task[1] !== ' ' ? ' checked' : ''}> `;
-    }
-    html += `<li${task ? ' class="task"' : ''}>${prefix}${blocks(body, refs, !loose)}</li>`;
-  }
-  const tag = ordered ? 'ol' : 'ul';
-  return { html: `<${tag}${ordered && startNumber !== 1 ? ` start="${startNumber}"` : ''}>${html}</${tag}>`, index };
 }
+
+// Remove whitespace text in tables before the HTML parser moves it in front of the table.
+function tableWhitespace() {
+  const tags = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr']);
+  return tree => walk(tree, node => {
+    if (tags.has(node.tagName)) node.children = node.children.filter(child => child.type !== 'text' || child.value.trim());
+  });
+}
+
+// Change sanitized HTML for this site:
+// - Move headings down one level, because the page title is the h1 element.
+// - Give headings anchors and point fragment links to the prefixed anchors.
+// - Remove relative links and images, because the site does not have the other files of the package.
+// - Load images over HTTPS without a referrer, and do not pass ranking to external links.
+// - Put each table in a box that scrolls on small screens.
+function site() {
+  return tree => {
+    const slug = slugger();
+    walk(tree, node => {
+      const { tagName: tag, properties: props } = node;
+      if (/^h[1-6]$/.test(tag)) {
+        node.tagName = `h${Math.min(6, Number(tag[1]) + 1)}`;
+        if (!props.id) props.id = PREFIX + slug(text(node));
+      } else if (tag === 'a' && typeof props.href === 'string') {
+        const href = props.href;
+        if (href.startsWith('#')) {
+          if (!href.startsWith(`#${PREFIX}`)) props.href = `#${PREFIX}${href.slice(1)}`;
+        } else if (/^(?:https?:|mailto:)/i.test(href)) props.rel = ['nofollow', 'noopener'];
+        else return node.children;
+      } else if (tag === 'a') return node.children;
+      else if (tag === 'img') {
+        const src = typeof props.src === 'string' ? props.src : '';
+        if (!/^https?:\/\//i.test(src)) return props.alt ? [{ type: 'text', value: String(props.alt) }] : [];
+        Object.assign(props, { src: src.replace(/^http:/i, 'https:'), loading: 'lazy', decoding: 'async', referrerPolicy: 'no-referrer' });
+      } else if (tag === 'table') {
+        return [{ type: 'element', tagName: 'div', properties: { className: ['table-scroll'] }, children: [node] }];
+      }
+    });
+  };
+}
+
+const processor = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  // The sanitizer adds the prefix to footnote anchors, so remark-rehype must not also add it.
+  .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: '' })
+  .use(tableWhitespace)
+  .use(rehypeRaw)
+  .use(rehypeSanitize)
+  .use(site)
+  .use(rehypeStringify)
+  .freeze();
 
 export function markdown(source) {
-  const refs = new Map();
-  const lines = [];
-  let fenced = null;
-  for (const raw of source.replace(/\r\n?/g, '\n').split('\n')) {
-    const line = expandTabs(raw);
-    const fence = FENCE.exec(line);
-    if (fenced) { if (new RegExp(`^ {0,3}${fenced[0] === '~' ? '~' : '\x60'}{${fenced.length},}\\s*$`).test(line)) fenced = null; }
-    else if (fence) fenced = fence[2];
-    else {
-      const definition = DEFINITION.exec(line);
-      if (definition) {
-        const key = normalize(definition[1]);
-        if (!refs.has(key)) refs.set(key, definition[2]);
-        continue;
-      }
-    }
-    lines.push(line);
-  }
-  return blocks(lines, refs);
+  return String(processor.processSync(source));
 }

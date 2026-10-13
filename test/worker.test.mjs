@@ -218,8 +218,8 @@ test('The Worker imports Cabal source into R2 and D1.', async () => {
     assert.match(readmePage.text, /<meta property="og:title" content="sample-1.2.0">/);
     assert.match(readmePage.text, /<link rel="canonical" href="http:\/\/localhost\/package\/sample\/1.2.0">/);
     assert.match(readmePage.text, /<a href="\/package\/sample\/1.2.0\/readme" data-tab="readme" aria-current="page">/);
-    assert.match(readmePage.text, /<h2>Sample<\/h2>/);
-    assert.match(readmePage.text, /&lt;script&gt;alert\(&quot;unsafe&quot;\)&lt;\/script&gt;/);
+    assert.match(readmePage.text, /<h2 id="user-content-sample">Sample<\/h2>/);
+    assert.match(readmePage.text, /A README with λ and \.<\/p>/);
     assert.doesNotMatch(readmePage.text, /<script>alert/);
     assert.match(readmePage.text, /λ/);
     const description = await pageOf('/package/sample/1.2.0/description');
