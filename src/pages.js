@@ -309,7 +309,7 @@ export function statsPage({ origin, stats }) {
       <div class="table-scroll"><table class="dependency-table stats-table"><thead><tr><th scope="col">Host</th><th scope="col">Visits</th><th scope="col">Requests</th><th scope="col">Data sent</th></tr></thead>
         <tbody>${traffic.hosts.map(row => html`<tr><td>${row.host}</td><td>${integer.format(row.visits)}</td><td>${integer.format(row.requests)}</td><td>${formatBytes(row.bytes)}</td></tr>`)}</tbody></table></div>
       <p class="note">Period: ${period} (UTC).</p>` : html`<p class="empty-note">Traffic data is not available.</p>`}</section>
-    <p class="note">${stats.analyticsFetchedAt ? `The site updates the Cloudflare analytics one time each hour. R2 storage and traffic data come from the Cloudflare GraphQL Analytics API.` : 'The Cloudflare GraphQL Analytics API is not configured.'}</p>
+    <p class="note">${stats.analyticsFetchedAt ? `The site updates the Cloudflare analytics one time each hour. R2 storage and traffic data come from the Cloudflare GraphQL Analytics API.` : 'The site could not read the Cloudflare GraphQL Analytics API.'}</p>
   </div>`;
   return layout({ title: 'Statistics', description: 'Package counts, Cloudflare storage, and traffic for AIHC Hackage.', canonical: `${origin}/stats`, page: 'stats', content });
 }

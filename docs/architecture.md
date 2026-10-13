@@ -120,6 +120,8 @@ Cloudflare does not supply a count of unique visitors for one host.
 
 The Worker keeps the analytics result in the edge cache for one hour.
 If the API request fails, the page shows the D1 values and tells the reader that the other data is not available.
+If the API returns only part of the data, the page shows that part, and the Worker keeps the result for five minutes only.
+The Worker logs API errors as `analytics-error` events.
 The `ANALYTICS_ACCOUNT_ID` and `ANALYTICS_ZONE_ID` variables in `wrangler.jsonc` identify the account and the `aihc.app` zone.
 The `CLOUDFLARE_ANALYTICS_TOKEN` Worker secret must have Account Analytics Read and Zone Analytics Read permissions.
 Set the secret with `npx wrangler secret put CLOUDFLARE_ANALYTICS_TOKEN`.
