@@ -188,6 +188,7 @@ body[data-page=package] #status:empty{display:none}
 .stats-page{padding:40px 0 16px}
 .stats-page h1{font-size:clamp(2rem,4.5vw,2.8rem);line-height:1.1;margin:0 0 8px}
 .stats-page section{margin-top:36px}
+.stats-page .section-label{border-bottom:0;margin:0 0 12px;padding-bottom:0}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:12px;margin:0 0 16px}
 .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
 .stat dt{color:var(--muted);font-size:13px;font-weight:500}
