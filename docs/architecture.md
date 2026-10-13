@@ -61,8 +61,13 @@ The package API includes status and digest information for both documents.
 The `/api/readme/{name}/{version}` and `/api/changelog/{name}/{version}` APIs serve saved document bytes as plain text.
 The Hackage endpoints do not identify the original file format.
 The page shows a README as Markdown and a changelog as plain text.
-`src/markdown.js` renders the Markdown as HTML text and escapes the source text. It does not parse HTML.
-The page shows HTML in package documents as text.
+`src/markdown.js` renders the README as GitHub Flavored Markdown with the unified, remark, and rehype packages.
+The renderer parses raw HTML in the README.
+Then `rehype-sanitize` removes each element, attribute, and URL that the GitHub sanitization schema does not allow.
+The sanitizer adds the `user-content-` prefix to each `id` and `name` attribute.
+The renderer changes fragment links to use this prefix.
+The renderer does not show HTML comments, as GitHub does not show them.
+The renderer removes relative links, because the site does not have the other files of the package.
 The content security policy lets the page load images from HTTPS addresses.
 The page loads Markdown images over HTTPS and does not send a referrer.
 The page shows the alternative text for an image with a relative address.
