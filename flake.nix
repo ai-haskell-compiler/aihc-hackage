@@ -108,7 +108,7 @@
                 ++ pkgs.lib.optional (name != "parser") ./scripts/externalize-wasm.mjs);
           };
           nodejs = pkgs.nodejs_24;
-          npmDepsHash = "sha256-xS4Bzc5EUPA9HMWfTYmbZ5ercHJE5+gs6MqDfJfFJno=";
+          npmDepsHash = "sha256-XDE6mqSgjf2heIv118dRvS0Bf1HGea005m9aXbVX35A=";
           dontNpmBuild = true;
           buildPhase = ''
             runHook preBuild
