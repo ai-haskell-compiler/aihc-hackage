@@ -2,6 +2,7 @@
 import { html, raw, render, escape } from './html.js';
 import { markdown } from './markdown.js';
 import { haddock } from './haddock.js';
+import { TRAFFIC_DAYS } from './stats.js';
 
 export const SITE = 'AIHC Hackage';
 export const TABS = [
@@ -61,7 +62,7 @@ export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, no
   <header class="site-header">
     <a class="brand" href="/" aria-label="${site}"><span class="mark">${MARK}</span><span>AIHC <strong>${page === 'builder' || page === 'documentation' ? 'Haddock' : 'Hackage'}</strong></span></a>
     <form class="header-search" role="search" action="/search" method="get"${home ? raw(' hidden') : ''}><label class="visually-hidden" for="header-query">Search packages</label><input id="header-query" name="q" type="search" maxlength="200" placeholder="Search packages…" autocomplete="off"></form>
-    <nav aria-label="Main"><a href="/search"${home ? raw(' aria-current="page"') : ''}>Packages</a><a href="/build">Generate docs</a>${page === 'builder' || page === 'documentation' ? '' : html`<a href="/shell/">Shell</a>`}<a href="https://docs.aihc.app/">Manual<span aria-hidden="true"> ↗</span></a><button id="theme" class="icon-button" type="button" title="Use the light mode"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d=""/></svg></button></nav>
+    <nav aria-label="Main"><a href="/search"${home ? raw(' aria-current="page"') : ''}>Packages</a><a href="/build">Generate docs</a>${page === 'builder' || page === 'documentation' ? '' : html`<a href="/shell/">Shell</a>`}<button id="theme" class="icon-button" type="button" title="Use the light mode"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d=""/></svg></button></nav>
   </header>
   <main id="content" tabindex="-1">
     ${home ? html`<section id="home" class="home">
@@ -72,7 +73,7 @@ export function layout({ title, description = DEFAULT_DESCRIPTION, canonical, no
     <p id="status" role="status" aria-live="polite"></p>
     <section id="view">${content}</section>
   </main>
-  <footer class="site-footer"><p>${site} · Metadata from <a href="https://hackage.haskell.org">Hackage</a></p><nav aria-label="Footer"><button id="open-import" class="link-button" type="button">Import a package</button><a href="https://blog.aihc.app/">Journal</a><a href="https://github.com/ai-haskell-compiler/aihc-hackage">Source</a></nav></footer>
+  <footer class="site-footer"><p>${site} · Metadata from <a href="https://hackage.haskell.org">Hackage</a></p><nav aria-label="Footer"><button id="open-import" class="link-button" type="button">Import a package</button><a href="/stats"${page === 'stats' ? raw(' aria-current="page"') : ''}>Stats</a><a href="https://blog.aihc.app/">AIHC Blog<span aria-hidden="true"> ↗</span></a><a href="https://github.com/ai-haskell-compiler/aihc-hackage">GitHub<span aria-hidden="true"> ↗</span></a></nav></footer>
   <dialog id="import-dialog" aria-labelledby="import-title">
     <form id="import-form">
       <h2 id="import-title">Import a package</h2>
@@ -276,6 +277,41 @@ export function missingPackagePage({ name, version, message }) {
 export function errorPage(message) {
   const content = html`<a class="back" href="/search">← All packages</a><div class="empty"><h3>${message}</h3></div>`;
   return layout({ title: 'Error', page: 'package', noindex: true, content });
+}
+
+const integer = new Intl.NumberFormat('en-US');
+const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+// Show a byte count with binary units, for example 15.3 MiB.
+export function formatBytes(bytes) {
+  const units = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB'];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+  return unit === 0 ? `${integer.format(value)} bytes` : `${value.toFixed(value < 10 ? 2 : 1)} ${units[unit]}`;
+}
+const stat = (label, value, detail = '') => html`<div class="stat"><dt>${label}</dt><dd>${value}</dd>${detail ? html`<dd class="stat-detail">${detail}</dd>` : ''}</div>`;
+const unavailable = 'Not available';
+
+// Render the statistics page. Values from the analytics API are null when the API is not configured or fails.
+export function statsPage({ origin, stats }) {
+  const { traffic, storage } = stats;
+  const totals = traffic && traffic.hosts.reduce((sum, row) => ({ requests: sum.requests + row.requests, bytes: sum.bytes + row.bytes, visits: sum.visits + row.visits }), { requests: 0, bytes: 0, visits: 0 });
+  const period = traffic && `${day.format(new Date(traffic.since))} to ${day.format(new Date(traffic.until))}`;
+  const content = html`<div class="stats-page">
+    <h1>Statistics</h1>
+    <p class="lede">The size of the catalogue, the Cloudflare storage, and the traffic for the last ${TRAFFIC_DAYS} days.</p>
+    <section aria-labelledby="stats-catalogue"><h2 id="stats-catalogue" class="section-label">Catalogue</h2>
+      <dl class="stats">${stat('Packages', integer.format(stats.packages))}${stat('Package versions', integer.format(stats.versions))}${stat('Documentation builds', integer.format(stats.documentation))}</dl></section>
+    <section aria-labelledby="stats-storage"><h2 id="stats-storage" class="section-label">Cloudflare storage</h2>
+      <dl class="stats">${stat('D1 database', stats.database.bytes === null ? unavailable : formatBytes(stats.database.bytes), 'Package index')}${stat('R2 objects', storage ? formatBytes(storage.bytes) : unavailable, storage ? `${integer.format(storage.objects)} files` : 'Cabal files, documents, and documentation')}</dl></section>
+    <section aria-labelledby="stats-traffic"><h2 id="stats-traffic" class="section-label">Traffic, last ${TRAFFIC_DAYS} days</h2>
+      ${traffic ? html`<dl class="stats">${stat('Visits', integer.format(totals.visits), 'Page views from other sites or direct links')}${stat('Requests', integer.format(totals.requests))}${stat('Data sent', formatBytes(totals.bytes))}</dl>
+      <div class="table-scroll"><table class="dependency-table stats-table"><thead><tr><th scope="col">Host</th><th scope="col">Visits</th><th scope="col">Requests</th><th scope="col">Data sent</th></tr></thead>
+        <tbody>${traffic.hosts.map(row => html`<tr><td>${row.host}</td><td>${integer.format(row.visits)}</td><td>${integer.format(row.requests)}</td><td>${formatBytes(row.bytes)}</td></tr>`)}</tbody></table></div>
+      <p class="note">Period: ${period} (UTC).</p>` : html`<p class="empty-note">Traffic data is not available.</p>`}</section>
+    <p class="note">${stats.analyticsFetchedAt ? `The site updates the Cloudflare analytics one time each hour. R2 storage and traffic data come from the Cloudflare GraphQL Analytics API.` : 'The Cloudflare GraphQL Analytics API is not configured.'}</p>
+  </div>`;
+  return layout({ title: 'Statistics', description: 'Package counts, Cloudflare storage, and traffic for AIHC Hackage.', canonical: `${origin}/stats`, page: 'stats', content });
 }
 
 export function sitemap(origin, releases) {

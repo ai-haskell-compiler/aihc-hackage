@@ -102,6 +102,24 @@ Otherwise, the description tab opens first.
 `src/haddock.js` renders the Haddock markup in package descriptions as HTML text.
 A line that contains only a period starts a new paragraph.
 
+## Statistics
+
+The `/stats` page shows the package count, the version count, and the documentation build count from D1.
+It shows the D1 database size from the `size_after` field of the D1 query result.
+The R2 storage size and the traffic data come from the Cloudflare GraphQL Analytics API.
+
+The traffic data includes requests, visits, and response bytes for `hackage.aihc.app` and `haddock.aihc.app`.
+It covers the last 30 days, which is the maximum period for adaptive HTTP data on the Free plan.
+A visit is a page view that comes from another site or from a direct link.
+Cloudflare does not supply a count of unique visitors for one host.
+
+The Worker keeps the analytics result in the edge cache for one hour.
+If the API request fails, the page shows the D1 values and tells the reader that the other data is not available.
+The `ANALYTICS_ACCOUNT_ID` and `ANALYTICS_ZONE_ID` variables in `wrangler.jsonc` identify the account and the `aihc.app` zone.
+The `CLOUDFLARE_ANALYTICS_TOKEN` Worker secret must have Account Analytics Read and Zone Analytics Read permissions.
+Set the secret with `npx wrangler secret put CLOUDFLARE_ANALYTICS_TOKEN`.
+For local development, put the token in `.dev.vars`.
+
 ## Development
 
 Use Node.js 24, Nix, Git, and Just.

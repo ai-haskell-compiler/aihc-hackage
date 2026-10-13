@@ -20,7 +20,7 @@ const mf = new Miniflare(convertV4MiniflareOptions({
     ...(await readdir('dist')).filter(name => name.endsWith('.wasm')).map(name => ({ type: 'CompiledWasm', path: `dist/${name}` }))],
   compatibilityDate: '2026-10-03', compatibilityFlags: ['nodejs_compat'],
   d1Databases: ['DB'], r2Buckets: ['CABAL'], ratelimits: { IMPORT_LIMIT: { namespace_id: '1001', simple: { limit: 10, period: 60 } } },
-  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/', '/search', '/package/*', '/api/*', '/hackage/*', '/sitemap.xml', '/robots.txt'], routerConfig: { has_user_worker: true } },
+  assets: { directory: 'public', binding: 'ASSETS', run_worker_first: ['/', '/search', '/package/*', '/api/*', '/hackage/*', '/sitemap.xml', '/robots.txt', '/stats'], routerConfig: { has_user_worker: true } },
   outboundService: async request => {
     outboundCount++;
     outboundUrls.push(request.url);
@@ -252,5 +252,12 @@ test('The Worker imports Cabal source into R2 and D1.', async () => {
     assert.match(map.text, /<loc>http:\/\/localhost\/package\/sample\/1.2.0<\/loc>/);
     assert.match(map.text, /<loc>http:\/\/localhost\/package\/sample\/1.10.0<\/loc>/);
     assert.match((await pageOf('/robots.txt')).text, /Sitemap: http:\/\/localhost\/sitemap.xml/);
+    const stats = await pageOf('/stats');
+    assert.equal(stats.status, 200);
+    assert.match(stats.text, /<dt>Packages<\/dt><dd>1<\/dd>/);
+    assert.match(stats.text, /<dt>Package versions<\/dt><dd>2<\/dd>/);
+    assert.match(stats.text, /Traffic data is not available\./);
+    assert.match(stats.text, /<a href="\/stats" aria-current="page">Stats<\/a>/);
+    assert.match(stats.text, /GitHub<span aria-hidden="true"> ↗<\/span>/);
   } finally { await mf.dispose(); }
 });
