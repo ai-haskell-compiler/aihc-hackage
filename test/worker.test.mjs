@@ -230,6 +230,24 @@ test('The Worker imports Cabal source into R2 and D1.', async () => {
     assert.match(dependencies.text, /<code class="condition">flag\(extra\)<\/code>/);
     assert.match((await pageOf('/package/containers')).text, /Import containers from Hackage/);
     assert.match((await pageOf('/package/sample/1.2.0/changelog')).text, /<pre class="package-document"># Changes\n\n\* Add a sample module\.\n<\/pre>/);
+    // Without documentation, the API tab asks the visitor to generate and upload it.
+    const apiPage = await pageOf('/package/sample/1.2.0/api');
+    assert.equal(apiPage.status, 200);
+    assert.equal(apiPage.headers.get('cache-control'), 'no-store');
+    assert.match(apiPage.headers.get('content-security-policy'), /'wasm-unsafe-eval'; worker-src 'self'/);
+    assert.match(apiPage.text, /<a href="\/package\/sample\/1.2.0\/api" data-tab="api" aria-current="page">/);
+    assert.match(apiPage.text, /id="api-build" data-name="sample" data-version="1.2.0"/);
+    assert.match(apiPage.text, /<script type="module" src="\/builder\/assets\/api-tab.js">/);
+    assert.doesNotMatch(apiPage.text, /Sample\.Extra/);
+    assert.doesNotMatch(readmePage.text, /api-tab\.js/);
+    // With documentation, the API tab links to the documentation and the tab URL redirects to it.
+    const docId = 'a'.repeat(64);
+    await db.prepare("INSERT INTO documentation_plans (id, name, version, object_key, created_at) VALUES ('plan', 'sample', '1.2.0', 'plan', 1)").run();
+    await db.prepare("INSERT INTO documentation_results (id, plan_id, name, version, model_sha256, object_key, provenance, diagnostics, created_at) VALUES (?, 'plan', 'sample', '1.2.0', 'model', 'model', 'community', 0, 1)").bind(docId).run();
+    const apiRedirect = await pageOf('/package/sample/1.2.0/api', { redirect: 'manual' });
+    assert.equal(apiRedirect.status, 302);
+    assert.equal(apiRedirect.headers.get('location'), `/docs/${docId}`);
+    assert.match((await pageOf('/package/sample/1.2.0/readme')).text, new RegExp(`<a href="/docs/${docId}" data-tab="api">`));
     const latest = await pageOf('/package/sample');
     assert.match(latest.text, /<link rel="canonical" href="http:\/\/localhost\/package\/sample\/1.10.0">/);
     assert.match(latest.text, /The document is not available\./);

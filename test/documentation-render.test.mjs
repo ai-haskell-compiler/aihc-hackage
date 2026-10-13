@@ -39,7 +39,7 @@ test('The documentation page shows a compact header and a module tree.', () => {
     model: { modules: names.map(name => module(name, [])) },
     plan: { generator: 'g', metadataSha256: 'c'.repeat(64), packages: [] } };
   const html = documentationPage(result, 'Data.Array.IO.Safe');
-  assert.match(html, /<nav class="doc-crumbs"[^>]*><a href="\/package\/array\/0\.5\.8\.0\/api">array<\/a>/);
+  assert.match(html, /<nav class="doc-crumbs"[^>]*><a href="\/package\/array\/0\.5\.8\.0">array<\/a>/);
   assert.match(html, /<h1 class="doc-title">Data\.Array\.IO\.Safe<\/h1>/);
   assert.match(html, />Community<\/a>/);
   assert.match(html, /<summary><a href="[^"]*\/Data\.Array"[^>]*>Data\.Array<\/a><\/summary>/);

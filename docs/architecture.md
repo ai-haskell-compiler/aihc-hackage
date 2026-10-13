@@ -318,7 +318,13 @@ The fixture retains the original CRLF line breaks.
 
 `haddock.aihc.app` opens the documentation builder.
 The same builder is at `/build` on `hackage.aihc.app`.
-The API tab of a package links to the builder and the preferred saved result.
+The API tab of a package opens the preferred saved result.
+If a result exists, the tab link and the `/package/{name}/{version}/api` URL go to that result.
+If no result exists, the API tab asks the visitor to generate and upload the documentation.
+The tab runs the same steps as the builder and shows the stages and the log.
+The tab always uploads the result after generation and then opens the uploaded documentation.
+If the upload fails, the next attempt uses the result that the browser saved.
+The API tab page and its redirect have no cache, because a visitor can upload documentation at any time.
 A verified result takes precedence over a community result.
 Reading documentation does not require JavaScript or browser generation support.
 

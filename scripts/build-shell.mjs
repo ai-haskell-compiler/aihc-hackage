@@ -40,7 +40,7 @@ for (const name of [...moduleNames.map(name => `${name}.gz`), 'core-libs.tar.gz'
   else runtime.modules.push(entry);
 }
 await writeFile('public/builder/runtime.json', JSON.stringify(runtime));
-await build({ entryPoints: ['builder/app.js', 'builder/runner.js'], outdir: 'public/builder/assets',
+await build({ entryPoints: ['builder/app.js', 'builder/api-tab.js', 'builder/runner.js'], outdir: 'public/builder/assets',
   bundle: true, format: 'esm', target: 'es2022', minify: true, legalComments: 'eof',
   logOverride: { 'duplicate-object-key': 'silent' } });
 console.log('Built the documentation builder.');

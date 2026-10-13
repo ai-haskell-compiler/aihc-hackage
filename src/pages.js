@@ -163,11 +163,24 @@ function descriptionTab(pkg) {
   if (!text.trim()) return emptyNote('The Cabal file does not contain a description.');
   return html`<div class="prose">${raw(haddock(text, module => searchHref(module)))}</div>`;
 }
+// The API tab opens the saved documentation. The Worker sends a redirect when documentation exists.
+// Otherwise, the tab asks the visitor to generate and upload the documentation.
+export const apiHref = pkg => pkg.documentation ? `/docs/${pkg.documentation.id}` : packageHref(pkg.name, pkg.version, 'api');
+const API_STAGES = [['plan', 'Resolve dependencies'], ['download', 'Download source'], ['generate', 'Generate documentation'], ['upload', 'Upload']];
 function apiTab(pkg) {
-  const docs = html`<p class="tab-actions">${pkg.documentation ? html`<a href="/docs/${pkg.documentation.id}">Read ${pkg.documentation.provenance === 'verified' ? 'verified' : 'community'} documentation →</a> · ` : ''}<a href="/build?name=${encode(pkg.name)}&version=${encode(pkg.version)}">Generate documentation</a></p>`;
-  if (!pkg.exposedModules.length) return html`${docs}${emptyNote('This package does not expose modules.')}`;
-  return html`<div>${docs}${note('This list includes modules from all conditional branches.')}
-    <ul class="module-list">${[...pkg.exposedModules].sort().map(name => html`<li>${name}</li>`)}</ul></div>`;
+  if (!pkg.exposedModules.length) return emptyNote('This package does not expose modules.');
+  const builder = `/build?name=${encode(pkg.name)}&version=${encode(pkg.version)}`;
+  return html`<section class="api-build" id="api-build" data-name="${pkg.name}" data-version="${pkg.version}" aria-labelledby="api-build-title">
+    <h2 id="api-build-title">No documentation is available</h2>
+    <p>No one has uploaded API documentation for ${pkg.name}-${pkg.version}. Do you want to generate the documentation and upload it?</p>
+    <p class="builder-note" id="api-build-capability">Generation runs on your device. Keep this page open until it finishes. The upload is a public community contribution.</p>
+    <noscript><p>Generation needs JavaScript. <a href="${builder}">Open the documentation builder</a>.</p></noscript>
+    <div class="builder-actions"><button type="button" id="api-build-start" disabled>Generate and upload documentation</button><button type="button" class="secondary" id="api-build-cancel" hidden>Cancel</button></div>
+    <ol class="api-stages" id="api-build-stages" aria-label="Build stages" hidden>${API_STAGES.map(([key, label], index) => html`<li data-stage="${key}"><span class="stage-number">${index + 1}</span>${label}</li>`)}</ol>
+    <p id="api-build-status" role="status" aria-live="polite"></p>
+    <p id="api-build-error" role="alert" hidden></p>
+    <details id="api-build-details" hidden open><summary>Build log</summary><pre id="api-build-log"></pre></details>
+  </section>`;
 }
 function dependencyTable(rows, columns) {
   return html`<table class="dependency-table"><thead><tr>${columns.map(column => html`<th>${column}</th>`)}</tr></thead>
@@ -253,7 +266,8 @@ export function packagePage({ origin, pkg, reverse, tab, documents = {} }) {
   };
   const tabs = TABS.map(([key, label]) => {
     const count = tabCount(pkg, reverse, key);
-    return html`<a href="${packageHref(pkg.name, pkg.version, key)}" data-tab="${key}"${key === active ? raw(' aria-current="page"') : ''}>${label}${count !== undefined ? html`<span class="count">${count}</span>` : ''}</a>`;
+    const href = key === 'api' ? apiHref(pkg) : packageHref(pkg.name, pkg.version, key);
+    return html`<a href="${href}" data-tab="${key}"${key === active ? raw(' aria-current="page"') : ''}>${label}${count !== undefined ? html`<span class="count">${count}</span>` : ''}</a>`;
   });
   const synopsis = (pkg.fields.synopsis || []).join(' ');
   const content = html`<div class="package-head"><a class="back" href="/search">← All packages</a>
@@ -263,6 +277,7 @@ export function packagePage({ origin, pkg, reverse, tab, documents = {} }) {
     <section class="tab-panel" aria-label="${TABS.find(([key]) => key === active)[1]}">${builders[active]()}</section></div>${sidebar(pkg, tab)}</div>`;
   return layout({
     title: `${pkg.name}-${pkg.version}`, page: 'package', content,
+    scripts: active === 'api' && pkg.exposedModules.length ? ['/builder/assets/api-tab.js'] : [],
     description: synopsis || `Metadata, dependencies, and documents for the Haskell package ${pkg.name}-${pkg.version}.`,
     canonical: origin + packageHref(pkg.name, pkg.version, active === defaultTab(pkg) ? undefined : active),
   });

@@ -88,7 +88,7 @@ export function documentationPage(result, selectedName) {
     : '';
   return layout({ title: `${selected?.name || result.name} · ${result.name}-${result.version}`, page: 'documentation',
     noindex: !verified, description: `API documentation for ${result.name}-${result.version}.`,
-    content: html`<div class="doc-bar"><nav class="doc-crumbs" aria-label="Breadcrumb"><a href="${packageHref(result.name, result.version, 'api')}">${result.name}</a><span class="badge">${result.version}</span>
+    content: html`<div class="doc-bar"><nav class="doc-crumbs" aria-label="Breadcrumb"><a href="${packageHref(result.name, result.version)}">${result.name}</a><span class="badge">${result.version}</span>
         ${selected ? html`<span class="doc-crumb-separator" aria-hidden="true">/</span><span class="doc-crumb-module">${selected.name}</span>` : ''}</nav>
       <a class="doc-provenance${verified ? ' verified' : ''}" href="#build-record" title="${verified ? 'The service reproduced this documentation.' : 'The service has not verified this documentation.'}">${verified ? 'Verified' : 'Community'}</a></div>
       <div class="documentation-layout${navigation ? '' : ' single'}">${navigation}
