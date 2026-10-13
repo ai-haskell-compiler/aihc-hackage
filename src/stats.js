@@ -3,6 +3,7 @@ export const TRAFFIC_DAYS = 30;
 export const TRAFFIC_HOSTS = ['hackage.aihc.app', 'haddock.aihc.app'];
 const BUCKET = 'aihc-hackage';
 const CACHE_SECONDS = 3600;
+const PARTIAL_CACHE_SECONDS = 300;
 const CACHE_KEY = 'https://stats.cache.invalid/cloudflare';
 
 const QUERY = `query ($zone: String!, $account: String!, $hosts: [String!], $bucket: String!, $since: Time!, $until: Time!, $storageSince: Time!) {
@@ -38,9 +39,12 @@ async function fetchAnalytics(env, now) {
   });
   if (!response.ok) throw new Error(`The analytics API returned status ${response.status}.`);
   const result = await response.json();
-  if (result.errors?.length) throw new Error(result.errors.map(error => error.message).join(' '));
   const zone = result.data?.viewer?.zones?.[0];
   const account = result.data?.viewer?.accounts?.[0];
+  // The API can return part of the data with errors, for example when the token cannot read the account.
+  const errors = result.errors?.map(error => error.message) || [];
+  if (errors.length && !zone && !account) throw new Error(errors.join(' '));
+  if (errors.length) console.error(JSON.stringify({ event: 'analytics-error', message: errors.join(' ') }));
   const hosts = TRAFFIC_HOSTS.map(host => {
     const row = zone?.traffic?.find(group => group.dimensions.clientRequestHTTPHost === host);
     return { host, requests: row?.count || 0, bytes: row?.sum.edgeResponseBytes || 0, visits: row?.sum.visits || 0 };
@@ -48,6 +52,7 @@ async function fetchAnalytics(env, now) {
   const storage = account?.storage?.[0];
   return {
     fetchedAt: until.toISOString(),
+    complete: errors.length === 0,
     traffic: zone ? { since: since.toISOString(), until: until.toISOString(), hosts } : null,
     storage: storage ? { bytes: storage.max.payloadSize + storage.max.metadataSize, objects: storage.max.objectCount, measuredAt: storage.dimensions.datetime } : null,
   };
@@ -61,7 +66,7 @@ async function cachedAnalytics(env, ctx) {
   if (cached) return cached.json();
   try {
     const analytics = await fetchAnalytics(env, Date.now());
-    const response = new Response(JSON.stringify(analytics), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${CACHE_SECONDS}` } });
+    const response = new Response(JSON.stringify(analytics), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${analytics.complete ? CACHE_SECONDS : PARTIAL_CACHE_SECONDS}` } });
     if (cache) ctx.waitUntil(cache.put(CACHE_KEY, response));
     return analytics;
   } catch (error) {
