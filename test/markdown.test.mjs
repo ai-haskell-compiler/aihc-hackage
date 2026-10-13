@@ -9,6 +9,13 @@ test('The Markdown renderer escapes source text and does not parse HTML.', () =>
   assert.equal(markdown('<!-- note -->'), '');
   assert.equal(markdown('[x](javascript:alert(1)) and ![y](/local.png)'), '<p>x and y</p>');
 });
+test('The Markdown renderer ends HTML blocks with the CommonMark end conditions and hides comments.', () => {
+  assert.equal(markdown('<!-- Generated. Do not edit. -->\n# Title\nText'), '<h2>Title</h2><p>Text</p>');
+  assert.equal(markdown('<!--\nnote\n-->\nText'), '<p>Text</p>');
+  assert.equal(markdown('a <!-- note --> b `<!-- code -->`'), '<p>a  b <code>&lt;!-- code --&gt;</code></p>');
+  assert.equal(markdown('<script>\nx\n</script>\nText'), '<pre><code>&lt;script&gt;\nx\n&lt;/script&gt;</code></pre><p>Text</p>');
+  assert.equal(markdown('Text\n<span>\nmore'), '<p>Text\n&lt;span&gt;\nmore</p>');
+});
 test('The Markdown renderer supports headings, lists, tables, and links.', () => {
   assert.equal(markdown('# Title\n\nText\n====\n\nSub\n---'), '<h2>Title</h2><h2>Text</h2><h3>Sub</h3>');
   assert.equal(markdown('- a\n- b'), '<ul><li>a</li><li>b</li></ul>');

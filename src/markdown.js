@@ -16,6 +16,7 @@ const INLINE = new RegExp([
   String.raw`(?: {2,}|\\)\n`, // hard line break
   String.raw`\\([!-\/:-@\[-\x60{-~])`, // 16: escaped character
   String.raw`&(#\d{1,7}|#[xX][\da-fA-F]{1,6}|[A-Za-z]{2,8});`, // 17: entity
+  String.raw`(<!--[\s\S]*?-->)`, // 18: comment
 ].join('|'), 'g');
 
 const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', mdash: '—', ndash: '–', hellip: '…', rarr: '→', larr: '←' };
@@ -38,7 +39,7 @@ function inline(text, refs, inLink = false) {
     out += escape(text.slice(last, match.index));
     last = match.index + match[0].length;
     const [whole, , code, alt, imageUrl, label, url, refLabel, ref, angleUrl, bareUrl,
-      strongStar, strongLine, emStar, emLine, strike, escaped, entityName] = match;
+      strongStar, strongLine, emStar, emLine, strike, escaped, entityName, comment] = match;
     if (code !== undefined) {
       const trimmed = /^ .* $/s.test(code) && code.trim() ? code.slice(1, -1) : code;
       out += `<code>${escape(trimmed.replace(/\n/g, ' '))}</code>`;
@@ -61,6 +62,7 @@ function inline(text, refs, inLink = false) {
     else if (strike !== undefined) out += `<del>${inline(strike, refs, inLink)}</del>`;
     else if (escaped !== undefined) out += escape(escaped);
     else if (entityName !== undefined) out += escape(entity(entityName) ?? whole);
+    else if (comment !== undefined) continue;
     else out += '<br>';
   }
   return out + escape(text.slice(last));
@@ -87,7 +89,23 @@ const RULE = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const QUOTE = /^ {0,3}> ?(.*)$/;
 const ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])([ \t]+(.*)|[ \t]*)$/;
 const SETEXT = /^ {0,3}(=+|-+)[ \t]*$/;
-const HTML = /^ {0,3}<(?:\/?[A-Za-z][\w-]*(?:\s|\/?>|$)|!--)/;
+// CommonMark HTML block start conditions. Each entry has a start pattern and an end pattern.
+// An end pattern of null means that a blank line ends the block.
+// Only a block of the last kind cannot interrupt a paragraph.
+const BLOCK_TAGS = 'address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul';
+const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
+const HTML_BLOCKS = [
+  [/^ {0,3}<(?:script|pre|style|textarea)(?:\s|>|$)/i, /<\/(?:script|pre|style|textarea)>/i],
+  [/^ {0,3}<!--/, /-->/],
+  [/^ {0,3}<\?/, /\?>/],
+  [/^ {0,3}<![A-Za-z]/, />/],
+  [/^ {0,3}<!\[CDATA\[/, /\]\]>/],
+  [new RegExp(`^ {0,3}</?(?:${BLOCK_TAGS})(?:\\s|/?>|$)`, 'i'), null],
+  [new RegExp(String.raw`^ {0,3}(?:<[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\s*\/?>|<\/[A-Za-z][A-Za-z0-9-]*\s*>)\s*$`), null],
+];
+const COMMENT = /<!--[\s\S]*?-->/g;
+// Return the HTML block kind that a line starts, or -1.
+const htmlBlock = line => HTML_BLOCKS.findIndex(([start]) => start.test(line));
 const DEFINITION = /^ {0,3}\[([^\]]+)\]:\s*<?(\S+?)>?(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*$/;
 const TABLE_DIVIDER = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$/;
 
@@ -98,7 +116,9 @@ const codeBlock = (text, language) => `<pre><code${language ? ` data-language="$
 
 // Return true if a line can interrupt a paragraph.
 function interrupts(line) {
-  if (FENCE.test(line) || ATX.test(line) || RULE.test(line) || QUOTE.test(line) || HTML.test(line)) return true;
+  if (FENCE.test(line) || ATX.test(line) || RULE.test(line) || QUOTE.test(line)) return true;
+  const kind = htmlBlock(line);
+  if (kind >= 0 && kind < HTML_BLOCKS.length - 1) return true;
   const item = ITEM.exec(line);
   return Boolean(item && item[4] && (/^[-*+]$/.test(item[2]) || /^1[.)]$/.test(item[2])));
 }
@@ -153,11 +173,22 @@ function blocks(lines, refs, tight = false) {
       out += `<blockquote>${blocks(body, refs)}</blockquote>`;
       continue;
     }
-    if (HTML.test(line)) {
+    const kind = htmlBlock(line);
+    if (kind >= 0) {
+      // Show the HTML block as text without its comments, as GitHub hides comments.
+      const [start, end] = HTML_BLOCKS[kind];
       const body = [];
-      while (index < lines.length && !blank(lines[index])) body.push(lines[index++]);
-      const text = body.join('\n');
-      if (!/^\s*<!--[\s\S]*-->\s*$/.test(text)) out += codeBlock(text);
+      if (end) {
+        // The end condition can be on the first line, after the start text.
+        let rest = line.slice(start.exec(line)[0].length);
+        while (index < lines.length) {
+          body.push(lines[index++]);
+          if (end.test(rest)) break;
+          rest = lines[index] ?? '';
+        }
+      } else while (index < lines.length && !blank(lines[index])) body.push(lines[index++]);
+      const text = body.join('\n').replace(COMMENT, '');
+      if (!blank(text)) out += codeBlock(text.replace(/^\n+|\s+$/g, ''));
       continue;
     }
     if (ITEM.test(line)) {

@@ -63,6 +63,8 @@ The Hackage endpoints do not identify the original file format.
 The page shows a README as Markdown and a changelog as plain text.
 `src/markdown.js` renders the Markdown as HTML text and escapes the source text. It does not parse HTML.
 The page shows HTML in package documents as text.
+The renderer uses the CommonMark rules to find the end of an HTML block.
+It does not show HTML comments, as GitHub does not show them.
 The content security policy lets the page load images from HTTPS addresses.
 The page loads Markdown images over HTTPS and does not send a referrer.
 The page shows the alternative text for an image with a relative address.
