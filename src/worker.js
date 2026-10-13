@@ -3,7 +3,8 @@ import { builderPage, documentationPage } from './documentation-pages.js';
 import { HttpError, json, limitedBytes } from './http.js';
 import { parseCabal } from './parser.js';
 import { contentDigest, importDocuments, documentMetadata } from './documents.js';
-import { TAB_NAMES, cataloguePage, packagePage, missingPackagePage, errorPage, sitemap, robots } from './pages.js';
+import { loadStats } from './stats.js';
+import { TAB_NAMES, cataloguePage, packagePage, statsPage, missingPackagePage, errorPage, sitemap, robots } from './pages.js';
 
 const MAX_CABAL = 1024 * 1024;
 const MAX_PROXY = 64 * 1024 * 1024;
@@ -169,7 +170,7 @@ function decode(part) {
   try { return decodeURIComponent(part); } catch { throw new HttpError(400, 'The link is not valid.'); }
 }
 // Render a site page. API errors become HTML error pages.
-async function renderPage(request, env, url) {
+async function renderPage(request, env, url, ctx) {
   if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'This method is not available.');
   const origin = url.origin;
   if (url.pathname === '/build' || (url.pathname === '/' && url.hostname === 'haddock.aihc.app')) {
@@ -187,6 +188,11 @@ async function renderPage(request, env, url) {
   if (url.pathname === '/sitemap.xml') {
     const releases = await env.DB.prepare('SELECT name, version, imported_at FROM releases ORDER BY name, version_sort').all();
     return new Response(sitemap(origin, releases.results), { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
+  }
+  if (url.pathname === '/stats') {
+    const response = page(statsPage({ origin, stats: await loadStats(env, ctx) }));
+    response.headers.set('Cache-Control', 'public, max-age=300');
+    return response;
   }
   if (url.pathname === '/robots.txt') {
     return new Response(robots(origin), { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } });
@@ -242,7 +248,7 @@ async function proxyHackage(request, url) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/hackage/')) {
       try { return await proxyHackage(request, url); } catch (error) {
@@ -254,7 +260,7 @@ export default {
     if (!url.pathname.startsWith('/api/')) {
       try {
         if (url.pathname === '/' || url.pathname === '/search' || url.pathname === '/build' || url.pathname.startsWith('/docs/') || url.pathname.startsWith('/package/')
-          || url.pathname === '/sitemap.xml' || url.pathname === '/robots.txt') return await renderPage(request, env, url);
+          || url.pathname === '/sitemap.xml' || url.pathname === '/robots.txt' || url.pathname === '/stats') return await renderPage(request, env, url, ctx);
         return await env.ASSETS.fetch(request);
       } catch (error) {
         if (error instanceof HttpError) return page(errorPage(error.message), error.status);

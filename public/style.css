@@ -183,6 +183,19 @@ body[data-page=package] #status:empty{display:none}
 .field-table{display:grid;grid-template-columns:170px minmax(0,1fr);gap:8px 16px;font-size:14px;margin:20px 0}
 .field-table dt{color:var(--muted);font-family:var(--mono);font-size:13px}
 .field-table dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Statistics */
+.stats-page{padding:40px 0 16px}
+.stats-page h1{font-size:clamp(2rem,4.5vw,2.8rem);line-height:1.1;margin:0 0 8px}
+.stats-page section{margin-top:36px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:12px;margin:0 0 16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.stat dt{color:var(--muted);font-size:13px;font-weight:500}
+.stat dd{margin:0;font-family:var(--serif);font-size:clamp(1.5rem,5vw,2rem);white-space:nowrap;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums}
+.stat .stat-detail{white-space:normal;font-family:var(--sans);font-size:13px;line-height:1.4;color:var(--muted);margin-top:4px}
+.table-scroll{overflow-x:auto}
+.stats-page table.stats-table :is(td,th){white-space:nowrap;overflow-wrap:normal}
+.stats-table td:not(:first-child),.stats-table th:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .raw summary{cursor:pointer;color:var(--accent);font-size:14px}
 .raw pre{font-size:12px;max-height:520px;overflow:auto;background:var(--code-background);border:1px solid var(--border);border-radius:10px;padding:16px}
 

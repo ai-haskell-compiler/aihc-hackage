@@ -19,7 +19,8 @@
       "/api/*",
       "/hackage/*",
       "/sitemap.xml",
-      "/robots.txt"
+      "/robots.txt",
+      "/stats"
     ]
   },
   "routes": [
@@ -32,6 +33,10 @@
       "custom_domain": true
     }
   ],
+  "vars": {
+    "ANALYTICS_ACCOUNT_ID": "d4a32894a9531f0a887025623b0bd7ce",
+    "ANALYTICS_ZONE_ID": "fbbe83ba8bbf8fc82a0f30c9156c6fcf"
+  },
   "d1_databases": [
     {
       "binding": "DB",
