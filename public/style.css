@@ -170,8 +170,6 @@ body[data-page=package] #status:empty{display:none}
 
 /* Documents, modules, and dependencies */
 .package-document{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65;background:var(--code-background);border:1px solid var(--border);border-radius:10px;padding:20px;margin:0}
-.module-list{columns:2;column-gap:32px;list-style:none;padding:0;margin:0;font:14px var(--mono)}
-.module-list li{padding:5px 0;break-inside:avoid;overflow-wrap:anywhere}
 .dependency-table{width:100%;border-collapse:collapse;font-size:14px}
 .dependency-table th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:8px 12px 8px 0;border-bottom:1px solid var(--border)}
 .dependency-table td{padding:9px 12px 9px 0;border-bottom:1px solid var(--border);vertical-align:top;overflow-wrap:anywhere}
@@ -246,7 +244,6 @@ dialog input{margin-top:6px;background:var(--background)}
   .search button{padding:10px 14px}
   .package-card{grid-template-columns:1fr;margin:0 -8px;padding:16px 8px}
   .card-meta{display:none}
-  .module-list{columns:1}
   .field-table{grid-template-columns:1fr;gap:2px}
   .field-table dd{margin-bottom:10px}
   .dependency-table td:first-child{white-space:normal}
@@ -268,8 +265,8 @@ dialog input{margin-top:6px;background:var(--background)}
 .builder-note{padding:14px 16px;background:var(--soft-accent);border-radius:8px;font-size:14px;margin:24px 0;overflow-wrap:anywhere}
 .builder-actions{display:flex;gap:12px;flex-wrap:wrap}
 .builder-actions button{white-space:normal;text-align:left;line-height:1.4}
-#build-status{font-size:14px;color:var(--accent);margin:20px 0 0}
-#build-error{color:var(--error);font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+#build-status,#api-build-status{font-size:14px;color:var(--accent);margin:20px 0 0}
+#build-error,#api-build-error{color:var(--error);font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
 #build-existing{margin-top:18px;font-size:14px}
 .builder-stages h2{font-size:26px;margin:0 0 24px}
 .builder-stages ol{list-style:none;padding:0;margin:0}
@@ -278,13 +275,22 @@ dialog input{margin-top:6px;background:var(--background)}
 .stage-number{display:block;flex:none;border:1px solid var(--border);color:var(--muted);width:28px;height:28px;border-radius:50%;text-align:center;font-size:13px;line-height:26px}
 .builder-stages strong{font-size:14px;font-weight:500}
 .builder-stages li p{font-size:13px;color:var(--muted);margin:3px 0 0}
-.builder-stages .active .stage-number,.builder-stages .complete .stage-number{color:var(--accent);border-color:var(--accent);background:var(--soft-accent)}
+.builder-stages .active .stage-number,.builder-stages .complete .stage-number,.api-stages .active .stage-number,.api-stages .complete .stage-number{color:var(--accent);border-color:var(--accent);background:var(--soft-accent)}
 .builder-stages .active strong{color:var(--accent)}
-#build-details{margin-top:24px}
-#build-details pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow-y:auto}
+#build-details,#api-build-details{margin-top:24px}
+#build-details pre,#api-build-details pre{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow-y:auto}
 #build-preview{border-top:1px solid var(--border);padding-top:28px;margin-top:28px}
 #build-preview>label{max-width:360px}
 #build-output{margin-top:24px;border-top:1px solid var(--border)}
+/* Documentation generation in the API tab */
+.api-build{max-width:720px}
+.api-build h2{font-size:24px;margin:0 0 8px}
+.api-build>p{margin:0 0 12px}
+.api-stages{list-style:none;display:flex;flex-wrap:wrap;gap:10px 24px;padding:0;margin:24px 0 0;font-size:14px;color:var(--muted)}
+.api-stages[hidden]{display:none}
+.api-stages li{display:flex;align-items:center;gap:8px}
+.api-stages .active{color:var(--accent);font-weight:500}
+.api-stages .complete{color:var(--text)}
 /* Documentation pages */
 .doc-bar{display:flex;align-items:center;gap:12px;margin:20px 0 24px;padding-bottom:12px;border-bottom:1px solid var(--border);font-size:14px}
 .doc-crumbs{display:flex;align-items:center;gap:8px;min-width:0;flex:1}

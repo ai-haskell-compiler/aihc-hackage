@@ -162,6 +162,8 @@ const PAGE_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "default-src 'self'; img-src 'self' https:; style-src 'self'; font-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
 };
+// The builder needs Wasm compilation and a Web Worker. The API tab runs the same builder.
+const BUILDER_CSP = PAGE_HEADERS['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'");
 const PACKAGE_PATH = new RegExp(`^/package/([^/]+)(?:/([^/]+))?(?:/(${TAB_NAMES.join('|')}))?/?$`);
 function page(text, status = 200) {
   return new Response(text, { status, headers: { ...PAGE_HEADERS, 'Cache-Control': status === 200 ? 'public, max-age=60' : 'no-store' } });
@@ -175,7 +177,7 @@ async function renderPage(request, env, url, ctx) {
   const origin = url.origin;
   if (url.pathname === '/build' || (url.pathname === '/' && url.hostname === 'haddock.aihc.app')) {
     const response = page(builderPage({ name: url.searchParams.get('name') || '', version: url.searchParams.get('version') || '' }));
-    response.headers.set('Content-Security-Policy', PAGE_HEADERS['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'"));
+    response.headers.set('Content-Security-Policy', BUILDER_CSP);
     return response;
   }
   const docs = /^\/docs\/([a-f0-9]{64})(?:\/([^/]+))?$/.exec(url.pathname);
@@ -213,11 +215,18 @@ async function renderPage(request, env, url, ctx) {
     if (error instanceof HttpError && error.status === 404) return page(missingPackagePage({ name, version, message: error.message }), 404);
     throw error;
   }
+  // The API tab opens the saved documentation. The redirect has no cache, because a visitor can upload documentation at any time.
+  if (tab === 'api' && pkg.documentation) return new Response(null, { status: 302, headers: { Location: `/docs/${pkg.documentation.id}`, 'Cache-Control': 'no-store' } });
   const reverse = await loadReverse(name, env);
   const documents = {};
   const active = tab || (pkg.documents.readme.status === 'available' ? 'readme' : 'description');
   if (active === 'readme' || active === 'changelog') documents[active] = await documentText(pkg, active, env);
-  return page(packagePage({ origin, pkg, reverse, tab, documents }));
+  const response = page(packagePage({ origin, pkg, reverse, tab, documents }));
+  if (active === 'api') {
+    response.headers.set('Content-Security-Policy', BUILDER_CSP);
+    response.headers.set('Cache-Control', 'no-store');
+  }
+  return response;
 }
 
 // The browser shell cannot read Hackage directly, because Hackage does not send CORS headers.

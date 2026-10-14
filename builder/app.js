@@ -1,38 +1,18 @@
-import { digest, encode, validateModel } from '../documentation/contract.js';
+import { validateModel } from '../documentation/contract.js';
 import { previewHtml } from '../documentation/render.js';
 import { saved } from './storage.js';
+import { UNSUPPORTED, api, appendLog, generate, requestPlan, showStage, supported, upload } from './client.js';
 
 const root = document.querySelector('#builder');
 const el = name => document.querySelector(`#build-${name}`);
-const supported = typeof WebAssembly.Suspending === 'function' && typeof Worker === 'function' && typeof DecompressionStream === 'function';
 let current; let operation; let packageRequest = 0; let allowRebuild = false;
-const stages = ['plan', 'download', 'generate', 'upload'];
-function progress(stage, message) {
-  const index = stages.indexOf(stage);
-  for (const item of root.querySelectorAll('[data-stage]')) {
-    const position = stages.indexOf(item.dataset.stage);
-    item.classList.toggle('complete', position < index); item.classList.toggle('active', position === index);
-  }
-  el('status').textContent = message;
-}
-function log(line) {
-  el('details').hidden = false;
-  const output = el('log'); const end = output.scrollTop + output.clientHeight >= output.scrollHeight - 4;
-  output.append(`${output.textContent ? '\n' : ''}${line}`);
-  if (end) output.scrollTop = output.scrollHeight;
-}
+function progress(stage, message) { showStage(root, stage); el('status').textContent = message; }
+function log(line) { el('details').hidden = false; appendLog(el('log'), line); }
 function error(message) { el('error').hidden = !message; el('error').textContent = message || ''; }
 function busy(value) {
   el('name').disabled = value; el('version').disabled = value;
   el('start').disabled = value || !supported || !el('version').value;
   el('cancel').hidden = !value;
-}
-async function api(path, { body, method = body ? 'POST' : 'GET', headers, signal } = {}) {
-  const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json', ...headers },
-    body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body), signal });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'The request failed. Try again.');
-  return data;
 }
 function existing(result) {
   el('existing').hidden = false; el('existing-link').href = `/docs/${result.id}`;
@@ -101,62 +81,20 @@ el('name').addEventListener('input', () => {
 el('version').addEventListener('change', () => { allowRebuild = false; restore().catch(problem => error(problem.message)); });
 el('module').addEventListener('change', () => { if (current) el('preview-content').innerHTML = previewHtml(current.model, el('module').value); });
 el('cancel').addEventListener('click', () => { operation?.abort(); });
-function pause(signal) {
-  return new Promise((accept, reject) => {
-    const cancel = () => { clearTimeout(timer); reject(new DOMException('Cancelled', 'AbortError')); };
-    const timer = setTimeout(() => { signal.removeEventListener('abort', cancel); accept(); }, 2000);
-    signal.addEventListener('abort', cancel, { once: true });
-    if (signal.aborted) cancel();
-  });
-}
-// The time limit applies to each step, so a plan with many packages gets more time.
-const STEP_LIMIT = 600000;
-function generate(plan, signal) {
-  return new Promise((accept, reject) => {
-    const worker = new Worker('/builder/assets/runner.js', { type: 'module' });
-    let step = 'Starting the generator.'; let timeout;
-    const wait = () => { clearTimeout(timeout); timeout = setTimeout(() => finish(new Error(`The build stopped at one step for more than ten minutes: ${step}`)), STEP_LIMIT); };
-    wait();
-    const cancel = () => finish(new DOMException('Cancelled', 'AbortError'));
-    const finish = (problem, result) => { clearTimeout(timeout); signal.removeEventListener('abort', cancel); worker.terminate(); problem ? reject(problem) : accept(result); };
-    signal.addEventListener('abort', cancel, { once: true });
-    worker.onmessage = event => {
-      const message = event.data;
-      if (message.line) log(message.line);
-      if (message.type === 'progress') {
-        step = message.message; wait();
-        progress(message.stage, `${message.message}${message.total ? ` ${message.completed} of ${message.total} packages.` : ''}`);
-      } else if (message.type === 'result') finish(null, message.result);
-      else if (message.type === 'error') finish(new Error(message.message));
-    };
-    worker.onerror = () => finish(new Error('The generator stopped. This device may not have enough memory.'));
-    worker.postMessage({ plan });
-  });
-}
 el('form').addEventListener('submit', async event => {
   event.preventDefault(); if (!supported) return;
   error(''); clearResult(); busy(true); operation = new AbortController(); const { signal } = operation;
   const name = el('name').value.trim(); const version = el('version').value;
   try {
     el('details').open = true;
-    progress('plan', 'Requesting a dependency plan.'); log(`Requesting a dependency plan for ${name}-${version}.`);
-    let job = await api('/api/docs/plans', { body: { name, version }, signal });
-    const started = Date.now(); let state;
-    while (job.state === 'queued' || job.state === 'running') {
-      if (job.state !== state) log(job.state === 'queued' ? 'The plan request is in the queue.' : 'The planner is resolving the dependencies.');
-      state = job.state;
-      progress('plan', job.state === 'queued' ? 'Waiting for the planner. You can cancel and return later.' : 'Resolving the dependency plan.');
-      if (Date.now() - started > 600000) throw new Error('The planner is still busy. Return to this page later.');
-      await pause(signal); job = await api(`/api/docs/jobs/${job.id}`, { signal });
-    }
-    if (job.state !== 'ready') throw new Error(job.error || 'The dependency plan could not be made.');
+    const job = await requestPlan(name, version, signal, { log, progress });
     if (job.result && !allowRebuild) {
       existing(job.result); allowRebuild = true; el('start').textContent = 'Generate again';
       progress('upload', 'Documentation already exists for this plan. You can read it or generate another result.'); return;
     }
     el('result').replaceChildren();
     log(`The plan has ${job.plan.packages.length} packages: ${job.plan.packages.map(pkg => `${pkg.name}-${pkg.version}`).join(', ')}.`);
-    const result = await generate(job.plan, signal); display(result);
+    const result = await generate(job.plan, signal, { log, progress }); display(result);
     const stored = await saved('results', `${name}-${version}`, result);
     el('saved').textContent = stored ? 'The result is saved in this browser. You can retry the upload later.' : 'Browser storage is unavailable. Download the result before you close this page.';
   } catch (problem) {
@@ -168,9 +106,7 @@ el('upload').addEventListener('click', async () => {
   if (!current) return;
   el('upload').disabled = true; busy(true); el('cancel').hidden = true; error('');
   try {
-    const record = current;
-    const ticket = await api('/api/docs/uploads', { body: { planId: record.plan.id, modelSha256: await digest(encode(record.modelText)) } });
-    const result = ticket.result || await api(`/api/docs/uploads/${ticket.id}`, { method: 'PUT', body: record.modelText, headers: { Authorization: `Bearer ${ticket.token}` } });
+    const result = await upload(current);
     const link = document.createElement('a'); link.href = `/docs/${result.id}`; link.textContent = 'Read the uploaded documentation →';
     el('result').replaceChildren(link); progress('upload', 'The community contribution was uploaded.');
   } catch (problem) { error(problem.message); }
@@ -183,5 +119,5 @@ function download(text, extension, type) {
 }
 el('download').addEventListener('click', () => { if (current) download(current.modelText, 'json', 'application/json'); });
 el('hoogle').addEventListener('click', () => { if (current) download(current.hoogle, 'txt', 'text/plain'); });
-if (!supported) el('capability').textContent = 'This browser cannot run the generator. Use a browser with WebAssembly JSPI support. Published documentation remains available.';
+if (!supported) el('capability').textContent = UNSUPPORTED;
 if (root.dataset.name) await loadPackage();
