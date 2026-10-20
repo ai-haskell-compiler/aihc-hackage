@@ -24,7 +24,7 @@ test('The browser generator resolves hidden modules and dependency re-exports.',
   const runtime = JSON.parse(await readFile('public/builder/runtime.json', 'utf8'));
   const result = await buildDocumentation(plan, { runtime,
     download: async (url, hash) => files.get(hash) || new Uint8Array(await readFile(`public${url}`)) });
-  assert.equal(result.model.format_version, 2);
+  assert.equal(result.model.format_version, 3);
   const mod = result.model.modules.find(mod => mod.name === 'Public');
   assert.equal(mod.decls.length, 0);
   const declarations = mod.resolved_exports.filter(item => item.tag === 'resolved_item').map(item => item.contents);

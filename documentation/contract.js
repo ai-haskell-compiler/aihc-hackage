@@ -1,5 +1,5 @@
 // Change the ABI when the plan consumer or documentation model changes.
-export const GENERATOR = 'aihc-haddock-aa6debbd-web-3';
+export const GENERATOR = 'aihc-haddock-858b1951-web-1';
 export const TARGET = 'linux-x86_64';
 export const MAX_MODEL = 8 * 1024 * 1024;
 export const MAX_SOURCE = 16 * 1024 * 1024;
@@ -65,7 +65,7 @@ export function validateModel(model, plan) {
     else if (value && typeof value === 'object') for (const child of Object.values(value)) walk(child, depth + 1);
   }
   walk(model, 0);
-  requireValue(model?.format_version === 2 && model.name === plan.root.name && model.version === plan.root.version, 'The documentation does not match the package.');
+  requireValue(model?.format_version === 3 && model.name === plan.root.name && model.version === plan.root.version, 'The documentation does not match the package.');
   requireValue(Array.isArray(model.modules) && model.modules.length <= 2000 && Array.isArray(model.dependencies), 'The documentation model is invalid.');
   const root = plan.packages.find(pkg => pkg.name === plan.root.name);
   const deps = root.dependencies.map(name => { const pkg = plan.packages.find(p => p.name === name); return `${pkg.name}-${pkg.version}`; }).sort();
@@ -84,6 +84,8 @@ export function validateModel(model, plan) {
       decl.subordinates.forEach(declaration);
     }
     mod.decls.forEach(declaration);
+    requireValue(Array.isArray(mod.sections) && mod.sections.every(section => section && Number.isSafeInteger(section.level)
+      && section.level >= 1 && section.title && typeof section.title === 'object'), 'The section list is invalid.');
     requireValue(Array.isArray(mod.resolved_exports), 'The resolved export list is invalid.');
     for (const item of mod.resolved_exports) {
       requireValue(item && ['resolved_item', 'resolved_module_item', 'section_item', 'doc_item'].includes(item.tag), 'The resolved export item is invalid.');

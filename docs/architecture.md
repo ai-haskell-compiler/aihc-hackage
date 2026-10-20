@@ -355,7 +355,10 @@ The browser platform does not change the documented target.
 `scripts/prepare-haddock-web.mjs` installs this adapter in a copy of the pinned Haddock source before a Nix build.
 The adapter selects source files with the flags and target from the plan.
 It builds dependency documentation first, so the generator can resolve re-exported declarations.
-The renderer uses resolved exports from model format 2 and can still show saved format 1 results.
+The renderer uses resolved exports from model format 3 and can still show saved format 1 and format 2 results.
+Format 3 adds the section headings of the module body.
+A module without an export list uses these headings to divide its declarations.
+The generator ignores body headings in a module with an export list, as Haddock does.
 It does not run the dependency solver.
 The original shell commands remain available.
 

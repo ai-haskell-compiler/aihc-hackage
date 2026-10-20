@@ -35,8 +35,8 @@ export async function fixturePlan() {
   return { plan, files, cabal };
 }
 export function fixtureModel(plan) {
-  const model = { format_version: 2, name: plan.root.name, version: plan.root.version, dependencies: [], modules: [{ name: 'Docs.Sample', exposed: true,
-    description: { document: { tag: 'DocString', string: '<script>unsafe()</script>' } }, diagnostics: ['A type signature is missing.'], instances: [],
+  const model = { format_version: 3, name: plan.root.name, version: plan.root.version, dependencies: [], modules: [{ name: 'Docs.Sample', exposed: true,
+    description: { document: { tag: 'DocString', string: '<script>unsafe()</script>' } }, diagnostics: ['A type signature is missing.'], instances: [], sections: [],
     exports: [{ tag: 'decl_item', contents: ['greet', 'value', { tag: 'no_subordinates' }] }],
     decls: [{ name: 'greet', namespace: 'value', kind: 'function', signature: 'String -> String', subordinates: [],
       doc: { document: { tag: 'DocHyperlink', hyperlink: { hyperlinkUrl: 'javascript:alert(1)', hyperlinkLabel: { tag: 'DocString', string: 'Unsafe link' } } } } },
