@@ -171,3 +171,27 @@ test('Resolved declarations are checked before rendering, and saved models remai
   assert.doesNotMatch(previewHtml(legacy), /privateValue/);
   assert.throws(() => validateModel(legacy, plan), /match/);
 });
+
+test('A module without an export list shows its body section headings between the declarations.', async () => {
+  const { plan } = await fixturePlan();
+  const model = fixtureModel(plan);
+  const mod = model.modules[0];
+  const [greet, privateValue] = mod.decls;
+  mod.exports = null;
+  mod.sections = [{ level: 1, title: { tag: 'DocString', string: 'Greetings' } }, { level: 2, title: { tag: 'DocString', string: 'Internals' } }];
+  mod.resolved_exports = [
+    { tag: 'section_item', contents: [1, { tag: 'DocString', string: 'Greetings' }] },
+    { tag: 'resolved_item', contents: greet },
+    { tag: 'section_item', contents: [2, { tag: 'DocString', string: 'Internals' }] },
+    { tag: 'resolved_item', contents: privateValue },
+  ];
+  const html = previewHtml(validateModel(model, plan));
+  const order = ['id="section-greetings"', 'id="decl-value-greet"', 'id="section-internals"', 'id="decl-value-privateValue"'].map(part => html.indexOf(part));
+  assert.ok(order.every(index => index >= 0), html);
+  assert.deepEqual(order, [...order].sort((a, b) => a - b));
+  assert.match(html, /<li class="level-2"><a href="#section-internals">Internals<\/a>/);
+  mod.sections = [{ level: 0, title: {} }];
+  assert.throws(() => validateModel(model, plan), /section list/);
+  delete mod.sections;
+  assert.throws(() => validateModel(model, plan), /section list/);
+});

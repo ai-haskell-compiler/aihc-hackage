@@ -45,12 +45,32 @@ test('aihc-haddock documents a package from the shell files', async () => {
   assert.equal(code, 0, output());
   assert.match(output(), /docs-sample-0\.1\.0\.0: 1 exposed modules/);
   const model = JSON.parse(bytesText(fs.read('/home/user/docs.json')));
-  assert.equal(model.format_version, 2);
+  assert.equal(model.format_version, 3);
   assert.deepEqual(model.modules.map(module => module.name), ['Docs.Sample']);
   const hoogle = bytesText(fs.read('/home/user/docs.txt'));
   assert.match(hoogle, /greet :: String -> String/);
   assert.match(hoogle, /Make a greeting for a name\./);
   assert.deepEqual(fs.list('/home/user'), ['docs-sample/', 'docs.json', 'docs.txt']);
+});
+
+test('aihc-haddock uses body section headings only in a module without an export list', async () => {
+  const { fs, shell, output } = await runtime();
+  const root = '/home/user/docs-sections';
+  fs.mkdir(`${root}/src`, true);
+  fs.write(`${root}/docs-sections.cabal`, 'cabal-version: 2.4\nname: docs-sections\nversion: 0.1.0.0\nbuild-type: Simple\n\nlibrary\n  exposed-modules: Listed, Unlisted\n  hs-source-dirs: src\n  build-depends: base\n  default-language: Haskell2010\n');
+  fs.write(`${root}/src/Listed.hs`, 'module Listed\n  ( -- * Values\n    one,\n  )\nwhere\n\n-- * Ignored heading\n\n-- | The number one.\none :: Int\none = 1\n');
+  fs.write(`${root}/src/Unlisted.hs`, 'module Unlisted where\n\n-- * Numbers\n\n-- | The number two.\ntwo :: Int\ntwo = 2\n\n-- ** Words\n\n-- | A word.\nword :: String\nword = "word"\n');
+  const code = await shell.execute('aihc-haddock build docs-sections --no-deps --json docs.json');
+  assert.equal(code, 0, output());
+  const model = JSON.parse(bytesText(fs.read('/home/user/docs.json')));
+  const listed = model.modules.find(mod => mod.name === 'Listed');
+  const unlisted = model.modules.find(mod => mod.name === 'Unlisted');
+  assert.deepEqual(listed.diagnostics.filter(message => /unattached/.test(message)), []);
+  assert.deepEqual(listed.sections, []);
+  assert.deepEqual(unlisted.diagnostics.filter(message => /unattached/.test(message)), []);
+  assert.deepEqual(unlisted.sections.map(section => section.level), [1, 2]);
+  assert.deepEqual(unlisted.resolved_exports.map(item => item.tag === 'section_item' ? `* ${item.contents[0]}` : item.contents.name),
+    ['* 1', 'two', '* 2', 'word']);
 });
 
 test('aihc-haddock reports an error for a missing package', async () => {

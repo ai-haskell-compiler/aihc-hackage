@@ -3,7 +3,7 @@
 
   inputs = {
     parserCompiler.url = "github:ai-haskell-compiler/aihc/bf991343a626e758a7d6d616770824fb55aaac92";
-    haddockCompiler.url = "github:ai-haskell-compiler/aihc/aa6debbd8e6a1486de1d6c1766e12e226c4a3b61";
+    haddockCompiler.url = "github:ai-haskell-compiler/aihc/858b1951d78ae543d1c99d1bb86e2cc36be82218";
     nixpkgs.follows = "haddockCompiler/nixpkgs";
   };
 
