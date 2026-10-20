@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { renderModule } from '../documentation/render.js';
+import { docMarkup, renderModule } from '../documentation/render.js';
 import { documentationPage } from '../src/documentation-pages.js';
 import { render } from '../src/html.js';
 
@@ -78,4 +78,13 @@ test('Modules list sections, collapse long instance lists and re-exports, and la
   assert.match(html, /<details class="doc-instances" id="instances"><summary>/);
   assert.match(html, /<dt><code>\(i, i\)<\/code><\/dt><dd>bounds<\/dd>.*<dt><code>\[\(i, e\)\]<\/code><\/dt><dd>pairs<\/dd>.*<dt>Argument 6<\/dt>/s);
   assert.match(render(renderModule({ ...mod, instances: mod.instances.slice(0, 2) })), /<details class="doc-instances" id="instances" open>/);
+});
+
+test('Examples show the expression after a prompt and then the result lines.', () => {
+  const examples = { tag: 'DocExamples', examples: [
+    { exampleExpression: 'quickCheck prop_reverse', exampleResult: ['+++ OK, passed 100 tests.'] },
+    { exampleExpression: 'reverse [1, 2]', exampleResult: ['[2,1]'] },
+  ] };
+  assert.equal(render(docMarkup(examples)),
+    '<pre><code>&gt;&gt;&gt; quickCheck prop_reverse\n+++ OK, passed 100 tests.\n&gt;&gt;&gt; reverse [1, 2]\n[2,1]</code></pre>');
 });
