@@ -34,7 +34,9 @@ export function docMarkup(doc) {
     }
     case 'DocPic': return html`<span class="muted">${text(doc.picture?.pictureLabel) || 'Image omitted.'}</span>`;
     case 'DocHeader': return html`<h3>${docMarkup(doc.header?.headerTitle)}</h3>`;
-    case 'DocExamples': return html`<pre><code>${array(doc.examples).map(example => `${text(example?.expression)}\n${array(example?.result).map(text).join('\n')}`).join('\n\n')}</code></pre>`;
+    // The model uses the Haddock field names `exampleExpression` and `exampleResult`.
+    case 'DocExamples': return html`<pre><code>${array(doc.examples).map(example =>
+      [`>>> ${text(example?.exampleExpression)}`, ...array(example?.exampleResult).map(text)].join('\n')).join('\n')}</code></pre>`;
     case 'DocProperty': case 'DocMathInline': case 'DocMathDisplay': return html`<code>${text(doc.string)}</code>`;
     case 'DocAName': return '';
     case 'DocTable': return html`<p class="muted">Table content is not available in this model version.</p>`;
