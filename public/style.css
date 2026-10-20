@@ -314,7 +314,7 @@ dialog input{margin-top:6px;background:var(--background)}
 .doc-modules a[aria-current=page]{background:var(--soft-accent);color:var(--accent);font-weight:600}
 .doc-modules details>summary{display:flex;align-items:center;cursor:pointer;list-style:none}
 .doc-modules details>summary::-webkit-details-marker{display:none}
-.doc-modules details>summary::before{content:'';flex:none;width:0;height:0;margin-left:-10px;border:4px solid transparent;border-left:5px solid var(--muted);border-right:0;transition:transform .1s}
+.doc-modules details>summary::before{content:'';flex:none;width:0;height:0;margin:0 5px 0 -10px;border:4px solid transparent;border-left:5px solid var(--muted);border-right:0;transition:transform .1s}
 .doc-modules details[open]>summary::before{transform:rotate(90deg)}
 .doc-modules summary>a,.doc-modules summary>span{flex:1;min-width:0}
 .doc-content{min-width:0}
